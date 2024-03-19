@@ -7,4 +7,9 @@
         <Nullable>enable</Nullable>
     </PropertyGroup>
 
+    <ItemGroup>
+      <Folder Include="tcp\" />
+      <Folder Include="upd\" />
+    </ItemGroup>
+
 </Project>

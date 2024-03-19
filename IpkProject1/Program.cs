@@ -1,11 +1,11 @@
-﻿namespace IpkProject1;
+﻿using IpkProject1.sysarg;
 
-using tcp;
+namespace IpkProject1;
 
 class IpkProject1
 {
     static void Main(string[] args)
     {
-        
+        SysArgParser.ParseArgs(args);
     }
 }
