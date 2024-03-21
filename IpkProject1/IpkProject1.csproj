@@ -8,7 +8,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <Folder Include="tcp\" />
       <Folder Include="upd\" />
     </ItemGroup>
 
