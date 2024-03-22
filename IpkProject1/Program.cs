@@ -32,7 +32,11 @@ class IpkProject1
             switch (msg_parts)
             {
                 case ["/auth", string username, string secret, string display_name]:
-                    if (ClientFsm.GetState() != FsmState.Start && ClientFsm.GetState() != FsmState.Auth)
+                    if (ClientFsm.GetState() == FsmState.Start)
+                    {
+                        ClientFsm.SetState(FsmState.Auth);
+                    }
+                    else if (ClientFsm.GetState() != FsmState.Auth)
                     {
                         Console.WriteLine("You are already authenticated");
                         break;
@@ -70,7 +74,6 @@ class IpkProject1
                         break;
                     }
                     packet = TcpPacketBuilder.build_msg(dname, msg);
-                    packet.Print();
                     break;
             }
             if (packet != null)
@@ -88,3 +91,5 @@ class IpkProject1
         printer.Wait();
     }
 }
+
+// /auth xshche05 7cf1aa40-5e37-4bdb-b19f-94f642970673 spagetik

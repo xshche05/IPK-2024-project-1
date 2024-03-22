@@ -56,10 +56,13 @@ public class TcpPacketParser
                 return new TcpPacket(MessageType.NotReply, data);
             case ["MSG", "FROM", _ , "IS", ..]:
                 return new TcpPacket(MessageType.Msg, data);
-            case ["ERROR", "FROM", _ , "IS", ..]:
+            case ["ERR", "FROM", _ , "IS", ..]:
                 return new TcpPacket(MessageType.Err, data);
             case ["BYE"]:
-                return new TcpPacket(MessageType.Bye, "");
+                return new TcpPacket(MessageType.Bye, "Bye");
+            default:
+                Console.WriteLine(parts);
+                break;
         }
         throw new Exception("Unknown incoming message type!");
     }
@@ -107,7 +110,6 @@ public class TcpPacket
                 {
                     Console.Error.Write($"Failure: {message}\n");
                 }
-
                 break;
             default:
                 Console.WriteLine(_data.Trim());

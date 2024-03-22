@@ -1,6 +1,8 @@
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
+using IpkProject1.fsm;
+using IpkProject1.Messages;
 
 namespace IpkProject1.tcp;
 
@@ -43,7 +45,37 @@ public class TcpChatClient
                     message += Encoding.UTF8.GetString(buffer); // read stream to message
                     if (message.EndsWith("\r\n")) // check if full message is received
                     {
-                        gotPackets.Add(TcpPacketParser.Parse(message.Trim()));
+                        TcpPacket p = TcpPacketParser.Parse(message.Trim());
+                        gotPackets.Add(p);
+                        switch (ClientFsm.GetState())
+                        {
+                            case FsmState.Auth:
+                                if (p.GetMsgType() == MessageType.Err)
+                                {
+                                    ClientFsm.SetState(FsmState.End);
+                                    TcpPacket bye = TcpPacketBuilder.build_bye();
+                                    await SendDataToServer(bye);
+                                } else if (p.GetMsgType() == MessageType.Reply)
+                                {
+                                    ClientFsm.SetState(FsmState.Open);
+                                } else if (p.GetMsgType() == MessageType.NotReply)
+                                {
+                                    ClientFsm.SetState(FsmState.Auth);
+                                }
+                                break;
+                            case FsmState.Open:
+                                if (p.GetMsgType() == MessageType.Err)
+                                {
+                                    ClientFsm.SetState(FsmState.End);
+                                    TcpPacket bye = TcpPacketBuilder.build_bye();
+                                    await SendDataToServer(bye);
+                                }
+                                else if (p.GetMsgType() == MessageType.Bye)
+                                {
+                                    ClientFsm.SetState(FsmState.End);
+                                }
+                                break;
+                        }
                         message = ""; // clear message
                     }
                 }
