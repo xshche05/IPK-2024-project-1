@@ -14,9 +14,8 @@ public class ClientFsm
         _state = state;
     }
     
-    public static bool IsUserCommandAllowed(MessageType message)
+    public static FsmState GetState()
     {
-        // TODO: implement state machine
-        return true;
+        return _state;
     }
 }   
