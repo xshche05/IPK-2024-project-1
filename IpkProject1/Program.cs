@@ -10,10 +10,16 @@ static class IpkProject1
 {
     public static void Main(string[] args)
     {
+        // todo check protocol
         SysArgParser.ParseArgs(args);
         var config = SysArgParser.GetAppConfig();
         TcpChatClient chatClient = new ();
-        chatClient.Connect(config.Host, config.Port); // catch exceptions and print them to stderr and exit with error code 1 
+        if (config.Host == null)
+        {
+            Console.Error.WriteLine("Host is required");
+            Environment.Exit(1);
+        }
+        chatClient.Connect(config.Host, config.Port); // todo catch exceptions and print them to stderr and exit with error code 1 
         Task readerTask = chatClient.Reader();
         Task printerTask = chatClient.Printer();
         Task? lastSendTask = null;
