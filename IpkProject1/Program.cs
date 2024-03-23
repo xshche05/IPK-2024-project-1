@@ -9,7 +9,6 @@ static class IpkProject1
     private static TcpChatClient chatClient = new ();
     private static Task? readerTask, printerTask;
     private static Task? lastSendTask;
-    private static bool terminated = false;
     
     public static void Main(string[] args)
     {
@@ -38,22 +37,17 @@ static class IpkProject1
             if (packet != null) lastSendTask = chatClient.SendDataToServer(packet);
             i++;
         }
-        if (!terminated)
-        {
-            Terminate();
-            terminated = true;
-        }
+        Terminate();
     }
 
     private static void Terminate()
-    {
-        if (terminated) return;
-        terminated = true;
+    { ;
         Console.WriteLine("Terminating...");
         if (lastSendTask != null) lastSendTask.Wait();
         chatClient.Disconnect();
         readerTask?.Wait();
         printerTask?.Wait();
+        Environment.Exit(0);
     }
 }
 
