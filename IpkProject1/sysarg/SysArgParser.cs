@@ -53,6 +53,10 @@ public class SysArgParser
     
     public static AppConfig GetAppConfig()
     {
+        if (Config.Host == null || Config.ProtocolEnum == null)
+        {
+            throw new ArgumentException("Host and protocol are required");
+        }
         return Config;
     }
 }
