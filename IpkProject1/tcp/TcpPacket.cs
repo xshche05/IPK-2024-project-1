@@ -1,5 +1,6 @@
 using System.Text;
 using IpkProject1.enums;
+using IpkProject1.interfaces;
 
 namespace IpkProject1.tcp;
 
@@ -53,7 +54,7 @@ public static class TcpPacketParser
             case ["REPLY", "OK", "IS", ..]:
                 return new TcpPacket(MessageTypeEnum.Reply, data);
             case ["REPLY", "NOK", "IS", ..]:
-                return new TcpPacket(MessageTypeEnum.NotReply, data);
+                return new TcpPacket(MessageTypeEnum.Reply, data);
             case ["MSG", "FROM", _ , "IS", ..]:
                 return new TcpPacket(MessageTypeEnum.Msg, data);
             case ["ERR", "FROM", _ , "IS", ..]:
@@ -68,7 +69,7 @@ public static class TcpPacketParser
     }
 }
 
-public class TcpPacket
+public class TcpPacket : IPacket
 {
     private MessageTypeEnum _typeEnum;
     private string _data;
@@ -77,6 +78,11 @@ public class TcpPacket
     {
         _typeEnum = typeEnum;
         _data = data;
+    }
+    
+    public string GetMsgData()
+    {
+        return _data;
     }
 
     public void Print()
@@ -106,9 +112,13 @@ public class TcpPacket
                 {
                     Console.Error.Write($"Success: {message}\n");
                 }
-                else
+                else if (state == "NOK")
                 {
                     Console.Error.Write($"Failure: {message}\n");
+                } else
+                {
+                    // todo error handling
+                    Console.Error.Write($"Unknown state: {state}\n");
                 }
                 break;
             default:

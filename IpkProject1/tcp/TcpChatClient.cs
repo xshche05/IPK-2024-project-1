@@ -3,10 +3,11 @@ using System.Net.Sockets;
 using System.Text;
 using IpkProject1.enums;
 using IpkProject1.fsm;
+using IpkProject1.interfaces;
 
 namespace IpkProject1.tcp;
 
-public class TcpChatClient
+public class TcpChatClient : IChatClient
 {
     private readonly TcpClient _client = new ();
     private readonly BlockingCollection<TcpPacket> _gotPackets = new ();
@@ -15,7 +16,6 @@ public class TcpChatClient
         _client.Connect(ip, port);
         Console.WriteLine("Connected to server...");
     }
-    
     public void Disconnect()
     {
         try
@@ -28,14 +28,19 @@ public class TcpChatClient
         }
         Console.WriteLine("Disconnected from server...");
     }
-    
-    // async function send data to server
-    public async Task SendDataToServer(TcpPacket packet)
+    public async Task SendDataToServer(IPacket packet)
     {
+        // todo check if packet is TCP packet
         byte[] buffer = packet.ToBytes();
-        await _client.GetStream().WriteAsync(buffer, 0, buffer.Length);
+        switch (ClientFsm.GetState())
+        {
+            case FsmStateEnum.Start:
+                if (packet.GetMsgType() == MessageTypeEnum.Auth)
+                    ClientFsm.SetState(FsmStateEnum.Auth);
+                break;
+        }
+        await _client.Client.SendAsync(buffer);
     }
-    
     public async Task Reader()
     {
         // read separate messages from server, every message is separated by CRLF
@@ -63,10 +68,10 @@ public class TcpChatClient
                                     ClientFsm.SetState(FsmStateEnum.End);
                                     TcpPacket bye = TcpPacketBuilder.build_bye();
                                     await SendDataToServer(bye);
-                                } else if (p.GetMsgType() == MessageTypeEnum.Reply)
+                                } else if (p.GetMsgType() == MessageTypeEnum.Reply && p.GetMsgData().ToUpper().StartsWith("REPLY OK"))
                                 {
                                     ClientFsm.SetState(FsmStateEnum.Open);
-                                } else if (p.GetMsgType() == MessageTypeEnum.NotReply)
+                                } else if (p.GetMsgType() == MessageTypeEnum.Reply && p.GetMsgData().ToUpper().Contains("REPLY NOK"))
                                 {
                                     ClientFsm.SetState(FsmStateEnum.Auth);
                                 }
@@ -100,7 +105,6 @@ public class TcpChatClient
         _gotPackets.CompleteAdding();
         Console.Error.WriteLine("Reader terminated...");
     }
-    
     public async Task Printer()
     {
         Console.Error.WriteLine("Printer started...");
