@@ -80,9 +80,12 @@ public class TcpChatClient
                     }
                 }
             }
-            catch (SocketException e)
+            catch (SocketException)
             {
-                Console.Error.WriteLine("Reader got socket closed");
+                break;
+            }
+            catch (ObjectDisposedException)
+            {
                 break;
             }
         }
