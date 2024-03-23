@@ -18,7 +18,14 @@ public class TcpChatClient
     
     public void Disconnect()
     {
-        _client.Close();
+        try
+        {
+            _client.Client.Shutdown(SocketShutdown.Both);
+        }
+        finally
+        {
+            _client.Client.Close();
+        }
         Console.WriteLine("Disconnected from server...");
     }
     

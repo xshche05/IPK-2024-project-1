@@ -1,6 +1,4 @@
-﻿using IpkProject1.enums;
-using IpkProject1.fsm;
-using IpkProject1.sysarg;
+﻿using IpkProject1.sysarg;
 using IpkProject1.tcp;
 using IpkProject1.user;
 
@@ -8,21 +6,29 @@ namespace IpkProject1;
 
 static class IpkProject1
 {
+    private static TcpChatClient chatClient = new ();
+    private static Task? readerTask, printerTask;
+    private static Task? lastSendTask;
+    private static bool terminated = false;
+    
     public static void Main(string[] args)
     {
+        Console.CancelKeyPress += (sender, eventArgs) =>
+        {
+            eventArgs.Cancel = true;
+            Terminate();
+        };
         // todo check protocol
         SysArgParser.ParseArgs(args);
         var config = SysArgParser.GetAppConfig();
-        TcpChatClient chatClient = new ();
         if (config.Host == null)
         {
             Console.Error.WriteLine("Host is required");
             Environment.Exit(1);
         }
         chatClient.Connect(config.Host, config.Port); // todo catch exceptions and print them to stderr and exit with error code 1 
-        Task readerTask = chatClient.Reader();
-        Task printerTask = chatClient.Printer();
-        Task? lastSendTask = null;
+        readerTask = chatClient.Reader();
+        printerTask = chatClient.Printer();
         int i = 0;
         while (i < 20)
         {
@@ -32,10 +38,22 @@ static class IpkProject1
             if (packet != null) lastSendTask = chatClient.SendDataToServer(packet);
             i++;
         }
+        if (!terminated)
+        {
+            Terminate();
+            terminated = true;
+        }
+    }
+
+    private static void Terminate()
+    {
+        if (terminated) return;
+        terminated = true;
+        Console.WriteLine("Terminating...");
         if (lastSendTask != null) lastSendTask.Wait();
         chatClient.Disconnect();
-        readerTask.Wait();
-        printerTask.Wait();
+        readerTask?.Wait();
+        printerTask?.Wait();
     }
 }
 
