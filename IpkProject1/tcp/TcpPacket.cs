@@ -1,49 +1,49 @@
 using System.Text;
-using IpkProject1.Messages;
+using IpkProject1.enums;
 
 namespace IpkProject1.tcp;
 
-public class TcpPacketBuilder
+public static class TcpPacketBuilder
 {
     // todo add checks for args format
-    private const string CRLF = "\r\n";
+    private const string Crlf = "\r\n";
     public static TcpPacket build_auth(string login, string dname, string secret)
     {
-        var type = MessageType.Auth;
-        var data = $"AUTH {login} AS {dname} USING {secret}{CRLF}";
+        var type = MessageTypeEnum.Auth;
+        var data = $"AUTH {login} AS {dname} USING {secret}{Crlf}";
         return new TcpPacket(type, data);
     }
     
     public static TcpPacket build_msg(string dname, string msg)
     {
-        var type = MessageType.Msg;
-        var data = $"MSG FROM {dname} IS {msg}{CRLF}";
+        var type = MessageTypeEnum.Msg;
+        var data = $"MSG FROM {dname} IS {msg}{Crlf}";
         return new TcpPacket(type, data);
     }
     
     public static TcpPacket build_error(string dname, string msg)
     {
-        var type = MessageType.Err;
-        var data = $"ERROR FROM {dname} IS {msg}{CRLF}";
+        var type = MessageTypeEnum.Err;
+        var data = $"ERROR FROM {dname} IS {msg}{Crlf}";
         return new TcpPacket(type, data);
     }
     
     public static TcpPacket build_join(string channel, string dname)
     {
-        var type = MessageType.Join;
-        var data = $"JOIN {channel} AS {dname}{CRLF}";
+        var type = MessageTypeEnum.Join;
+        var data = $"JOIN {channel} AS {dname}{Crlf}";
         return new TcpPacket(type, data);
     }
     
     public static TcpPacket build_bye()
     {
-        var type = MessageType.Bye;
-        var data = $"BYE{CRLF}";
+        var type = MessageTypeEnum.Bye;
+        var data = $"BYE{Crlf}";
         return new TcpPacket(type, data);
     }
 }
 
-public class TcpPacketParser
+public static class TcpPacketParser
 {
     public static TcpPacket Parse(string data)
     {
@@ -51,15 +51,15 @@ public class TcpPacketParser
         switch (parts)
         {
             case ["REPLY", "OK", "IS", ..]:
-                return new TcpPacket(MessageType.Reply, data);
+                return new TcpPacket(MessageTypeEnum.Reply, data);
             case ["REPLY", "NOK", "IS", ..]:
-                return new TcpPacket(MessageType.NotReply, data);
+                return new TcpPacket(MessageTypeEnum.NotReply, data);
             case ["MSG", "FROM", _ , "IS", ..]:
-                return new TcpPacket(MessageType.Msg, data);
+                return new TcpPacket(MessageTypeEnum.Msg, data);
             case ["ERR", "FROM", _ , "IS", ..]:
-                return new TcpPacket(MessageType.Err, data);
+                return new TcpPacket(MessageTypeEnum.Err, data);
             case ["BYE"]:
-                return new TcpPacket(MessageType.Bye, "Bye");
+                return new TcpPacket(MessageTypeEnum.Bye, "Bye");
             default:
                 Console.WriteLine(parts);
                 break;
@@ -70,12 +70,12 @@ public class TcpPacketParser
 
 public class TcpPacket
 {
-    private MessageType _type;
+    private MessageTypeEnum _typeEnum;
     private string _data;
 
-    public TcpPacket(MessageType type, string data)
+    public TcpPacket(MessageTypeEnum typeEnum, string data)
     {
-        _type = type;
+        _typeEnum = typeEnum;
         _data = data;
     }
 
@@ -84,21 +84,21 @@ public class TcpPacket
         string dname;
         string message;
         string state;
-        switch (_type)
+        switch (_typeEnum)
         {
-            case MessageType.Msg:
+            case MessageTypeEnum.Msg:
                 string[] msg = _data.Split(" ", 5);
                 dname = msg[2];
                 message = msg[4].Trim();
                 Console.Write($"{dname}: {message}\n");
                 break;
-            case MessageType.Err:
+            case MessageTypeEnum.Err:
                 string[] err = _data.Split(" ", 5);
                 dname = err[2];
                 message = err[4].Trim();
                 Console.Error.Write($"{dname}: {message}\n");
                 break;
-            case MessageType.Reply:
+            case MessageTypeEnum.Reply:
                 string[] reply = _data.Split(" ", 4);
                 state = reply[1];
                 message = reply[3].Trim();
@@ -122,8 +122,8 @@ public class TcpPacket
         return Encoding.UTF8.GetBytes(_data);
     }
 
-    public MessageType GetMsgType()
+    public MessageTypeEnum GetMsgType()
     {
-        return _type;
+        return _typeEnum;
     }
 }

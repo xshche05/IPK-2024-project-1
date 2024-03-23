@@ -1,41 +1,42 @@
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
+using IpkProject1.enums;
 using IpkProject1.fsm;
-using IpkProject1.Messages;
 
 namespace IpkProject1.tcp;
 
 public class TcpChatClient
 {
-    private static TcpClient Client { get; } = new TcpClient();
-    public static void Connect(string ip, int port)
+    private readonly TcpClient _client = new ();
+    private readonly BlockingCollection<TcpPacket> _gotPackets = new ();
+    public void Connect(string ip, int port)
     {
-        Client.Connect(ip, port);
+        _client.Connect(ip, port);
         Console.WriteLine("Connected to server...");
     }
     
-    public static void Disconnect()
+    public void Disconnect()
     {
-        Client.Close();
+        _client.Close();
         Console.WriteLine("Disconnected from server...");
     }
     
     // async function send data to server
-    public static async Task SendDataToServer(TcpPacket packet)
+    public async Task SendDataToServer(TcpPacket packet)
     {
         byte[] buffer = packet.ToBytes();
-        await Client.GetStream().WriteAsync(buffer, 0, buffer.Length);
+        await _client.GetStream().WriteAsync(buffer, 0, buffer.Length);
     }
     
-    public static async Task Reader(BlockingCollection<TcpPacket> gotPackets)
+    public async Task Reader()
     {
         // read separate messages from server, every message is separated by CRLF
         string message = "";
         byte[] buffer = new byte[1];
         // write to stderr if reader is terminated
         Console.Error.WriteLine("Reader started...");
-        Socket s = Client.Client;
+        Socket s = _client.Client;
         while (s.Connected)
         {
             try
@@ -46,33 +47,33 @@ public class TcpChatClient
                     if (message.EndsWith("\r\n")) // check if full message is received
                     {
                         TcpPacket p = TcpPacketParser.Parse(message.Trim());
-                        gotPackets.Add(p);
+                        _gotPackets.Add(p);
                         switch (ClientFsm.GetState())
                         {
-                            case FsmState.Auth:
-                                if (p.GetMsgType() == MessageType.Err)
+                            case FsmStateEnum.Auth:
+                                if (p.GetMsgType() == MessageTypeEnum.Err)
                                 {
-                                    ClientFsm.SetState(FsmState.End);
+                                    ClientFsm.SetState(FsmStateEnum.End);
                                     TcpPacket bye = TcpPacketBuilder.build_bye();
                                     await SendDataToServer(bye);
-                                } else if (p.GetMsgType() == MessageType.Reply)
+                                } else if (p.GetMsgType() == MessageTypeEnum.Reply)
                                 {
-                                    ClientFsm.SetState(FsmState.Open);
-                                } else if (p.GetMsgType() == MessageType.NotReply)
+                                    ClientFsm.SetState(FsmStateEnum.Open);
+                                } else if (p.GetMsgType() == MessageTypeEnum.NotReply)
                                 {
-                                    ClientFsm.SetState(FsmState.Auth);
+                                    ClientFsm.SetState(FsmStateEnum.Auth);
                                 }
                                 break;
-                            case FsmState.Open:
-                                if (p.GetMsgType() == MessageType.Err)
+                            case FsmStateEnum.Open:
+                                if (p.GetMsgType() == MessageTypeEnum.Err)
                                 {
-                                    ClientFsm.SetState(FsmState.End);
+                                    ClientFsm.SetState(FsmStateEnum.End);
                                     TcpPacket bye = TcpPacketBuilder.build_bye();
                                     await SendDataToServer(bye);
                                 }
-                                else if (p.GetMsgType() == MessageType.Bye)
+                                else if (p.GetMsgType() == MessageTypeEnum.Bye)
                                 {
-                                    ClientFsm.SetState(FsmState.End);
+                                    ClientFsm.SetState(FsmStateEnum.End);
                                 }
                                 break;
                         }
@@ -89,20 +90,20 @@ public class TcpChatClient
                 break;
             }
         }
-        gotPackets.CompleteAdding();
+        _gotPackets.CompleteAdding();
         Console.Error.WriteLine("Reader terminated...");
     }
     
-    public static async Task Printer(BlockingCollection<TcpPacket> gotPackets)
+    public async Task Printer()
     {
         Console.Error.WriteLine("Printer started...");
-        while (!gotPackets.IsCompleted)
+        while (!_gotPackets.IsCompleted)
         {
             TcpPacket? packet = await Task.Run(() =>
             {
                 try
                 {
-                    TcpPacket p = gotPackets.Take(); 
+                    TcpPacket p = _gotPackets.Take(); 
                     return p;
                 } catch (InvalidOperationException)
                 {

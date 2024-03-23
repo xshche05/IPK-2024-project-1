@@ -1,8 +1,10 @@
+using IpkProject1.enums;
+
 namespace IpkProject1.sysarg;
 
 public class SysArgParser
 {
-    private static AppConfig _appConfig { get; set; } = new AppConfig();
+    private static AppConfig Config { get; set; } = new AppConfig();
     
     public static void ParseArgs(string[] args)
     {
@@ -11,33 +13,33 @@ public class SysArgParser
             switch (args[i])
             {
                 case "-t": 
-                    Protocol protocol = args[i + 1] switch
+                    ProtocolEnum protocolEnum = args[i + 1] switch
                     {
-                        "tcp" => Protocol.Tcp,
-                        "udp" => Protocol.Udp,
+                        "tcp" => ProtocolEnum.Tcp,
+                        "udp" => ProtocolEnum.Udp,
                         _ => throw new ArgumentException("Invalid protocol")
                     };
-                    _appConfig = _appConfig with { Protocol = protocol };
+                    Config = Config with { ProtocolEnum = protocolEnum };
                     i++;
                     break;
                 case "-s":
                     string host = args[i + 1];
-                    _appConfig = _appConfig with { Host = host };
+                    Config = Config with { Host = host };
                     i++;
                     break;
                 case "-p":
                     int port = int.Parse(args[i + 1]);
-                    _appConfig = _appConfig with { Port = port };
+                    Config = Config with { Port = port };
                     i++;
                     break;
                 case "-d":
                     int timeout = int.Parse(args[i + 1]);
-                    _appConfig = _appConfig with { Timeout = timeout };
+                    Config = Config with { Timeout = timeout };
                     i++;
                     break;
                 case "-r":
                     int retries = int.Parse(args[i + 1]);
-                    _appConfig = _appConfig with { Retries = retries };
+                    Config = Config with { Retries = retries };
                     i++;
                     break;
                 case "-h":
@@ -51,6 +53,6 @@ public class SysArgParser
     
     public static AppConfig GetAppConfig()
     {
-        return _appConfig;
+        return Config;
     }
 }

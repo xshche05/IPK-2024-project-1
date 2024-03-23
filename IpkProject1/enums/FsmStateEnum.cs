@@ -1,6 +1,6 @@
-namespace IpkProject1.fsm;
+namespace IpkProject1.enums;
 
-public enum FsmState
+public enum FsmStateEnum
 {
     Start,
     Auth,

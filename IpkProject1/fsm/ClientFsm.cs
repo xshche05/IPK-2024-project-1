@@ -1,20 +1,17 @@
-using IpkProject1.Messages;
+using IpkProject1.enums;
 
 namespace IpkProject1.fsm;
 
-public class ClientFsm
+public static class ClientFsm
 {
-    private static FsmState _state = FsmState.Start;
+    private static FsmStateEnum _state = FsmStateEnum.Start;
     
-    private static MessageType _lastClientMessage = MessageType.None;
-    private static MessageType _lastServerMessage = MessageType.None;
-    
-    public static void SetState(FsmState state)
+    public static void SetState(FsmStateEnum stateEnum)
     {
-        _state = state;
+        _state = stateEnum;
     }
     
-    public static FsmState GetState()
+    public static FsmStateEnum GetState()
     {
         return _state;
     }

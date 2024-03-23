@@ -1,4 +1,5 @@
 ﻿using System.Collections.Concurrent;
+using IpkProject1.enums;
 using IpkProject1.fsm;
 using IpkProject1.sysarg;
 using IpkProject1.tcp;
@@ -7,7 +8,6 @@ namespace IpkProject1;
 
 class IpkProject1
 {
-    public static BlockingCollection<TcpPacket> gotPackets = new BlockingCollection<TcpPacket>();
     static void Main(string[] args)
     {
         string ip = "anton5.fit.vutbr.cz"; // anton5.fit.vutbr.cz
@@ -15,10 +15,11 @@ class IpkProject1
         string dname = "default_name";
         SysArgParser.ParseArgs(args);
         // catch exceptions and print them to stderr and exit with error code 1 
-        TcpChatClient.Connect(ip, port);
-        Task reader = TcpChatClient.Reader(gotPackets);
-        Task printer = TcpChatClient.Printer(gotPackets);
-        Task? lastsender = null;
+        TcpChatClient chatClient = new ();
+        chatClient.Connect(ip, port);
+        Task readerTask = chatClient.Reader();
+        Task printerTask = chatClient.Printer();
+        Task? lastSendTask = null;
         int i = 0;
         while (i < 20)
         {
@@ -28,37 +29,37 @@ class IpkProject1
             {
                 break;
             }
-            string[] msg_parts = msg.Split(" ");
-            switch (msg_parts)
+            string[] msgParts = msg.Split(" ");
+            switch (msgParts)
             {
-                case ["/auth", string username, string secret, string display_name]:
-                    if (ClientFsm.GetState() == FsmState.Start)
+                case ["/auth", var username, var secret, var displayName]:
+                    if (ClientFsm.GetState() == FsmStateEnum.Start)
                     {
-                        ClientFsm.SetState(FsmState.Auth);
+                        ClientFsm.SetState(FsmStateEnum.Auth);
                     }
-                    else if (ClientFsm.GetState() != FsmState.Auth)
+                    else if (ClientFsm.GetState() != FsmStateEnum.Auth)
                     {
                         Console.WriteLine("You are already authenticated");
                         break;
                     }
-                    packet = TcpPacketBuilder.build_auth(username, display_name, secret);
-                    dname = display_name;
+                    packet = TcpPacketBuilder.build_auth(username, displayName, secret);
+                    dname = displayName;
                     break;
-                case ["/join", string channel]:
-                    if (ClientFsm.GetState() != FsmState.Open)
+                case ["/join", var channel]:
+                    if (ClientFsm.GetState() != FsmStateEnum.Open)
                     {
                         Console.WriteLine("You are not authenticated");
                         break;
                     }
                     packet = TcpPacketBuilder.build_join(channel, dname);
                     break;
-                case ["/rename", string display_name]:
-                    if (ClientFsm.GetState() != FsmState.Open)
+                case ["/rename", var displayName]:
+                    if (ClientFsm.GetState() != FsmStateEnum.Open)
                     {
                         Console.WriteLine("You are not authenticated");
                         break;
                     }
-                    dname = display_name;
+                    dname = displayName;
                     break;
                 case ["/help"]:
                     Console.WriteLine("Commands:\n" +
@@ -68,7 +69,7 @@ class IpkProject1
                                       "/msg <message>\n");
                     break;
                 default:
-                    if (ClientFsm.GetState() != FsmState.Open)
+                    if (ClientFsm.GetState() != FsmStateEnum.Open)
                     {
                         Console.WriteLine("You are not authenticated");
                         break;
@@ -78,17 +79,17 @@ class IpkProject1
             }
             if (packet != null)
             {
-                lastsender = TcpChatClient.SendDataToServer(packet);
+                lastSendTask = chatClient.SendDataToServer(packet);
             }
             i++;
         }
-        if (lastsender != null)
+        if (lastSendTask != null)
         {
-             lastsender.Wait();
+            lastSendTask.Wait();
         }
-        TcpChatClient.Disconnect();
-        reader.Wait();
-        printer.Wait();
+        chatClient.Disconnect();
+        readerTask.Wait();
+        printerTask.Wait();
     }
 }
 
