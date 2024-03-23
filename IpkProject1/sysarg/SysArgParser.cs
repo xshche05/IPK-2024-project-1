@@ -13,7 +13,7 @@ public class SysArgParser
             switch (args[i])
             {
                 case "-t": 
-                    ProtocolEnum protocolEnum = args[i + 1] switch
+                    ProtocolEnum protocolEnum = args[i + 1].ToLower() switch
                     {
                         "tcp" => ProtocolEnum.Tcp,
                         "udp" => ProtocolEnum.Udp,
