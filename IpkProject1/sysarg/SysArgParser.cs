@@ -19,7 +19,7 @@ public class SysArgParser
                         "udp" => ProtocolEnum.Udp,
                         _ => throw new ArgumentException("Invalid protocol")
                     };
-                    Config = Config with { ProtocolEnum = protocolEnum };
+                    Config = Config with { Protocol = protocolEnum };
                     i++;
                     break;
                 case "-s":
