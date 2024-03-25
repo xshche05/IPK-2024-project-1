@@ -1,3 +1,5 @@
+using System.Net.Sockets;
+
 namespace IpkProject1.interfaces;
 
 public interface IChatClient
