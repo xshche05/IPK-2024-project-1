@@ -8,5 +8,5 @@ public record AppConfig()
     public int Timeout { get; init; } = 250;
     public int Retries { get; init; } = 3;
     public string? Host { get; init; } = null;
-    public ProtocolEnum? ProtocolEnum { get; init; } = null;
+    public ProtocolEnum? Protocol { get; init; } = null;
 }
