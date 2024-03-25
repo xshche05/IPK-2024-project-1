@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net.Sockets;
 using System.Text;
 using IpkProject1.enums;
@@ -14,52 +15,54 @@ public class TcpChatClient : IChatClient
     public void Connect(string ip, int port)
     {
         _client.Connect(ip, port);
-        Console.WriteLine("Connected to server...");
+        Debug.WriteLine("Connected to server...");
     }
     public void Disconnect()
     {
         try
         {
+            Debug.WriteLine("TCP client is shutting down...");
             _client.Client.Shutdown(SocketShutdown.Both);
         }
         finally
         {
+            Debug.WriteLine("TCP client is closing...");
             _client.Client.Close();
         }
-        Console.WriteLine("Disconnected from server...");
     }
     public async Task SendDataToServer(IPacket packet)
     {
-        // todo check if packet is TCP packet
-        byte[] buffer = packet.ToBytes();
-        switch (ClientFsm.GetState())
+        if (packet is TcpPacket tcpPacket)
         {
-            case FsmStateEnum.Start:
-                if (packet.GetMsgType() == MessageTypeEnum.Auth)
-                    ClientFsm.SetState(FsmStateEnum.Auth);
-                break;
+            Debug.WriteLine($"Sending TCP packet: {tcpPacket.GetMsgType()}");
+            if (tcpPacket.GetMsgType() == MessageTypeEnum.Auth && ClientFsm.GetState() == FsmStateEnum.Start)
+                ClientFsm.SetState(FsmStateEnum.Auth);
+            await _client.Client.SendAsync(tcpPacket.ToBytes());
         }
-        await _client.Client.SendAsync(buffer);
+        else
+        {
+            Debug.WriteLine("Invalid packet type...");
+            // todo terminate the program
+        }
     }
     public async Task Reader()
     {
         // read separate messages from server, every message is separated by CRLF
-        string message = "";
-        byte[] buffer = new byte[1];
-        // write to stderr if reader is terminated
-        Console.Error.WriteLine("Reader started...");
-        Socket s = _client.Client;
-        while (s.Connected)
+        string message = ""; // message buffer
+        byte[] buffer = new byte[1]; // read byte by byte
+        Debug.WriteLine("Reader started...");
+        while (true)
         {
             try
             {
-                while (await s.ReceiveAsync(buffer) != 0)
+                while (await _client.Client.ReceiveAsync(buffer) != 0)
                 {
                     message += Encoding.UTF8.GetString(buffer); // read stream to message
                     if (message.EndsWith("\r\n")) // check if full message is received
                     {
                         TcpPacket p = TcpPacketParser.Parse(message.Trim());
                         _gotPackets.Add(p);
+                        // todo make separate method for below
                         switch (ClientFsm.GetState())
                         {
                             case FsmStateEnum.Auth:
@@ -80,8 +83,6 @@ public class TcpChatClient : IChatClient
                                 if (p.GetMsgType() == MessageTypeEnum.Err)
                                 {
                                     ClientFsm.SetState(FsmStateEnum.End);
-                                    TcpPacket bye = TcpPacketBuilder.build_bye();
-                                    await SendDataToServer(bye);
                                 }
                                 else if (p.GetMsgType() == MessageTypeEnum.Bye)
                                 {
@@ -93,29 +94,28 @@ public class TcpChatClient : IChatClient
                     }
                 }
             }
-            catch (SocketException)
+            catch (SocketException) // client is closed
             {
                 break;
             }
-            catch (ObjectDisposedException)
+            catch (ObjectDisposedException) // client is closed
             {
                 break;
             }
         }
-        _gotPackets.CompleteAdding();
-        Console.Error.WriteLine("Reader terminated...");
+        _gotPackets.CompleteAdding(); // signal that no more packets will be added
+        Debug.WriteLine("Reader terminated...");
     }
     public async Task Printer()
     {
-        Console.Error.WriteLine("Printer started...");
+        Debug.WriteLine("Printer started...");
         while (!_gotPackets.IsCompleted)
         {
             TcpPacket? packet = await Task.Run(() =>
             {
                 try
                 {
-                    TcpPacket p = _gotPackets.Take(); 
-                    return p;
+                    return _gotPackets.Take();
                 } catch (InvalidOperationException)
                 {
                     return null;
@@ -123,6 +123,6 @@ public class TcpChatClient : IChatClient
             });
             if (packet != null) packet.Print();
         }
-        Console.Error.WriteLine("Printer terminated...");
+        Debug.WriteLine("Printer terminated...");
     }
 }
