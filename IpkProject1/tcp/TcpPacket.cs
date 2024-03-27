@@ -2,41 +2,38 @@ using System.Diagnostics;
 using System.Text;
 using IpkProject1.enums;
 using IpkProject1.interfaces;
+using IpkProject1.user;
 
 namespace IpkProject1.tcp;
 
 public class TcpPacketBuilder : IPacketBuilder
 {
     private const string Crlf = "\r\n";
-    public static TcpPacket build_auth(string login, string dname, string secret)
+    public static TcpPacket build_auth(string login, string displayName, string secret)
     {
-        // todo check if login, dname and secret are valid
         var type = MessageTypeEnum.Auth;
-        var data = $"AUTH {login} AS {dname} USING {secret}{Crlf}";
+        var data = $"AUTH {login} AS {displayName} USING {secret}{Crlf}";
         return new TcpPacket(type, data);
     }
     
-    public static TcpPacket build_msg(string dname, string msg)
+    public static TcpPacket build_msg(string displayName, string msg)
     {
-        // todo check if dname and msg are valid
         var type = MessageTypeEnum.Msg;
-        var data = $"MSG FROM {dname} IS {msg}{Crlf}";
+        var data = $"MSG FROM {displayName} IS {msg}{Crlf}";
         return new TcpPacket(type, data);
     }
     
-    public static TcpPacket build_error(string dname, string msg)
+    public static TcpPacket build_error(string displayName, string msg)
     {
-        // todo check if dname and msg are valid
         var type = MessageTypeEnum.Err;
-        var data = $"ERROR FROM {dname} IS {msg}{Crlf}";
+        var data = $"ERROR FROM {displayName} IS {msg}{Crlf}";
         return new TcpPacket(type, data);
     }
     
-    public static TcpPacket build_join(string channel, string dname)
+    public static TcpPacket build_join(string channel, string displayName)
     {
-        // todo check if channel and dname are valid
         var type = MessageTypeEnum.Join;
-        var data = $"JOIN {channel} AS {dname}{Crlf}";
+        var data = $"JOIN {channel} AS {displayName}{Crlf}";
         return new TcpPacket(type, data);
     }
     
@@ -52,33 +49,25 @@ public static class TcpPacketParser
 {
     public static TcpPacket Parse(string data)
     {
-        string[] parts = data.ToUpper().Split(" ");
-        switch (parts)
+        var parts = data.ToUpper().Split(" ");
+        return parts switch
         {
-            case ["REPLY", "OK", "IS", ..]:
-                return new TcpPacket(MessageTypeEnum.Reply, data);
-            case ["REPLY", "NOK", "IS", ..]:
-                return new TcpPacket(MessageTypeEnum.Reply, data);
-            case ["MSG", "FROM", _ , "IS", ..]:
-                return new TcpPacket(MessageTypeEnum.Msg, data);
-            case ["ERR", "FROM", _ , "IS", ..]:
-                return new TcpPacket(MessageTypeEnum.Err, data);
-            case ["BYE"]:
-                return new TcpPacket(MessageTypeEnum.Bye, "Bye");
-            default:
-                Debug.WriteLine(parts);
-                break;
-        }
-        throw new Exception("Unknown incoming message type!");
+            ["REPLY", "OK", "IS", ..] => new TcpPacket(MessageTypeEnum.Reply, data),
+            ["REPLY", "NOK", "IS", ..] => new TcpPacket(MessageTypeEnum.Reply, data),
+            ["MSG", "FROM", _, "IS", ..] => new TcpPacket(MessageTypeEnum.Msg, data),
+            ["ERR", "FROM", _, "IS", ..] => new TcpPacket(MessageTypeEnum.Err, data),
+            ["BYE"] => new TcpPacket(MessageTypeEnum.Bye, data),
+            _ => new TcpPacket(MessageTypeEnum.None, "Failed to parse packet!")
+        };
     }
 }
 
 public class TcpPacket : IPacket
 {
-    private MessageTypeEnum _typeEnum;
-    private string _data;
+    private readonly MessageTypeEnum _typeEnum;
+    private readonly string _data;
 
-    public TcpPacket(MessageTypeEnum typeEnum, string data)
+    public TcpPacket(MessageTypeEnum typeEnum, string data) 
     {
         _typeEnum = typeEnum;
         _data = data;
@@ -91,39 +80,38 @@ public class TcpPacket : IPacket
 
     public void Print()
     {
-        string dname;
+        string displayName;
         string message;
-        string state;
         switch (_typeEnum)
         {
-            case MessageTypeEnum.Msg:
+            case MessageTypeEnum.Msg: // print message
                 var msg = _data.Split(" ", 5);
-                dname = msg[2];
-                message = msg[4].Trim();
-                Console.Write($"{dname}: {message}\n");
+                displayName = msg[2]; // sender
+                message = msg[4][..^2]; // remove \r\n
+                Io.PrintLine($"{displayName}: {message}", ConsoleColor.Green);
                 break;
-            case MessageTypeEnum.Err:
+            case MessageTypeEnum.Err: // print error
                 var err = _data.Split(" ", 5);
-                dname = err[2];
-                message = err[4].Trim();
-                Console.Error.Write($"{dname}: {message}\n");
+                displayName = err[2]; // sender
+                message = err[4][..^2]; // remove \r\n
+                Io.ErrorPrintLine($"ERR FROM {displayName}: {message}");
                 break;
-            case MessageTypeEnum.Reply:
+            case MessageTypeEnum.Reply: // print reply
                 var reply = _data.Split(" ", 4);
-                state = reply[1];
-                message = reply[3].Trim();
-                if (state == "OK")
-                    Console.Error.Write($"Success: {message}\n");
-                else if (state == "NOK")
-                    Console.Error.Write($"Failure: {message}\n");
-                else
-                {
-                    // todo error handling
-                    Console.Error.Write($"Unknown state: {state}\n");
-                }
+                var state = reply[1]; // OK or NOK
+                message = reply[4][..^2]; // remove \r\n
+                Io.ErrorPrintLine(state == "OK" ? "Success" : "Failure" + $": {message}\n");
                 break;
-            default:
-                Console.WriteLine(_data.Trim());
+            case MessageTypeEnum.Bye: // do nothing
+                Io.DebugPrintLine("Client disconnected (server send BYE)");
+                break;
+            case MessageTypeEnum.None:
+                // todo send error packet
+                Io.ErrorPrintLine($"ERR: {_data}\n");
+                break;
+            default: // unsupported packet
+                // todo send error packet
+                Io.ErrorPrintLine("ERR: Got packet unsupported by client!\n");
                 break;
         }
     }

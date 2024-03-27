@@ -1,12 +1,14 @@
-using System.Net.Sockets;
-
 namespace IpkProject1.interfaces;
 
 public interface IChatClient
 {
+    public bool _isSenderTerminated { get; set; }
     public void Connect(string host, int port);
     public void Disconnect();
-    public Task SendDataToServer(IPacket packet);
+    public Task AddPacketToSendQueue(IPacket packet);
     public Task Reader();
     public Task Printer();
+    public Task Sender();
+    
+    public void Close();
 }
