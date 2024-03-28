@@ -36,7 +36,6 @@ internal static class IpkProject1
                 if (!InputProcessor.CancellationToken.IsCancellationRequested) ClientFsm.SetState(FsmStateEnum.End);
             }
         };
-        Io.InitRedirectedInputState();
         SysArgParser.ParseArgs(args); // Command line arguments parsing
         SetUpClient(); // Client setup according to the protocol, host and port
         
@@ -79,9 +78,6 @@ internal static class IpkProject1
         {
             // Wait for the reader task to finish
             _readerTask?.Wait(TimeoutCancellationToken);
-
-            // Wait for the printer task to finish
-            _printerTask?.Wait(TimeoutCancellationToken);
         }
         catch (Exception e)
         {
@@ -93,7 +89,8 @@ internal static class IpkProject1
             _chatClient.Close();
         }
         
-        
+        // Wait for the printer task to finish
+        _printerTask?.Wait();
     }
     
     private static void SetUpClient()

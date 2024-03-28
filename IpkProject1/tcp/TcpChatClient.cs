@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -38,27 +37,22 @@ public class TcpChatClient : IChatClient
         _client.Client.Shutdown(SocketShutdown.Both);
         Io.DebugPrintLine("TCP client is closing...");
     }
-    
     public void Close()
     {
         _client.Close();
     }
-    
-    /* public async Task SendDataToServer(IPacket packet)
+    private async Task SendDataToServer(IPacket packet)
     {
-        if (packet is TcpPacket tcpPacket)
+        byte[] data = packet.ToBytes();
+        switch(ClientFsm.State)
         {
-            Io.DebugPrintLine($"Sending TCP packet: {tcpPacket.GetMsgType()}");
-            if (tcpPacket.GetMsgType() == MessageTypeEnum.Auth && ClientFsm.GetState() == FsmStateEnum.Start)
-                ClientFsm.SetState(FsmStateEnum.Auth);
-            await _client.Client.SendAsync(tcpPacket.ToBytes());
+            case FsmStateEnum.Auth:
+                if (packet.GetMsgType() == MessageTypeEnum.Auth)
+                    ClientFsm.SetState(FsmStateEnum.Auth);
+                break;
         }
-        else
-        {
-            Io.DebugPrintLine("Invalid packet type...");
-            // todo terminate the program
-        }
-    } */
+        await _client.Client.SendAsync(data, SocketFlags.None);
+    }
     public async Task Reader()
     {
         // read separate messages from server, every message is separated by CRLF
@@ -77,7 +71,7 @@ public class TcpChatClient : IChatClient
                         TcpPacket p = TcpPacketParser.Parse(message.Trim());
                         _gotPacketsQueue.Add(p);
                         // todo make separate method for below
-                        switch (ClientFsm.GetState())
+                        switch (ClientFsm.State)
                         {
                             case FsmStateEnum.Auth:
                                 if (p.GetMsgType() == MessageTypeEnum.Err)
@@ -141,20 +135,46 @@ public class TcpChatClient : IChatClient
 
         Io.DebugPrintLine("Printer terminated...");
     }
-    
-    public async Task Sender(){ }
-    
+
+    public async Task Sender()
+    {
+        Io.DebugPrintLine("Sender started...");
+        while (!_sendPacketsQueue.IsCompleted)
+        {
+            TcpPacket? p = null;
+            var getTask = Task.Run(() =>
+            {
+                try
+                {
+                    p = _sendPacketsQueue.Take();
+                }
+                catch (InvalidOperationException) 
+                {
+                    p = null;
+                }
+            });
+            await getTask;
+            Io.DebugPrintLine($"Got packet from queue {p?.GetMsgType()}");
+            if (p != null)
+            {
+                var last = SendDataToServer(p);
+                IpkProject1.SetLastSendTask(last);
+                await last;
+                Io.DebugPrintLine($"Send packet to server {p.GetMsgType()}...");
+            }
+        }
+    }
     public async Task AddPacketToSendQueue(IPacket packet)
     {
-        if (packet is TcpPacket tcpPacket)
+        await Task.Run(() =>
         {
-            Io.DebugPrintLine($"Adding TCP packet to send queue: {tcpPacket.GetMsgType()}");
-            _sendPacketsQueue.Add(tcpPacket);
-        }
-        else
-        {
-            Io.DebugPrintLine("Invalid packet type...");
-            // todo terminate the program
-        }
+            if (packet.GetMsgType() == MessageTypeEnum.Auth)
+            {
+                IpkProject1.AuthSem.WaitOne();
+                Io.DebugPrintLine("AuthSem acquired in TcpChatClient...");
+            }
+            _sendPacketsQueue.Add((TcpPacket) packet);
+            Io.DebugPrintLine("Packet added to send queue...");
+        });
     }
 }

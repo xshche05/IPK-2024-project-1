@@ -9,6 +9,5 @@ public interface IChatClient
     public Task Reader();
     public Task Printer();
     public Task Sender();
-    
     public void Close();
 }

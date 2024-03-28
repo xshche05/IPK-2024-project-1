@@ -15,11 +15,10 @@ public class UdpChatClient : IChatClient
     private readonly UdpClient _client = new ();
     public bool _isSenderTerminated { get; set; } = false;
     private IPEndPoint? _endPoint;
-    private int _idCounter = 0;
     private readonly BlockingCollection<int> _confirmedMessages = new ();
+    private readonly BlockingCollection<UdpPacket> _gotPacketsQueue = new ();
     private readonly List<int> _processedMessages = new ();
     private readonly BlockingCollection<UdpPacket> _sendPacketsQueue = new ();
-    private int _byeId = -1;
     
     public void Connect(string host, int port)
     {
@@ -51,16 +50,10 @@ public class UdpChatClient : IChatClient
     {
         _client.Close();
     }
-
-    public int GetId()
-    {
-        _idCounter++;
-        return _idCounter;
-    }
     
     private void FsmUpdate(IPacket packet)
     {
-        switch (ClientFsm.GetState())
+        switch (ClientFsm.State)
         {
             case FsmStateEnum.Auth:
                 if (packet.GetMsgType() == MessageTypeEnum.Err)
@@ -69,12 +62,10 @@ public class UdpChatClient : IChatClient
                 }
                 else if (packet.GetMsgType() == MessageTypeEnum.Reply && packet.ToBytes()[3] == 1)
                 {
-                    Io.DebugPrintLine("AUTH successful... SHOULD UNLOCK AUTH LOCK OBJ HERE");
                     ClientFsm.SetState(FsmStateEnum.Open);
                 }
                 else if (packet.GetMsgType() == MessageTypeEnum.Reply && packet.ToBytes()[3] == 0)
                 {
-                    Io.DebugPrintLine("AUTH failed... SHOULD UNLOCK AUTH LOCK OBJ HERE");
                     ClientFsm.SetState(FsmStateEnum.Auth);
                 }
                 break;
@@ -106,11 +97,12 @@ public class UdpChatClient : IChatClient
                 {
                     _confirmedMessages.Add(msg_id);
                     Io.DebugPrintLine("Confirm received, id: " + msg_id);
+                    /*
                     if (msg_id == _byeId)
                     {
                         Io.DebugPrintLine("Bye confirmed...");
                         break;
-                    }
+                    } */
                 }
                 else
                 {
@@ -121,7 +113,7 @@ public class UdpChatClient : IChatClient
                     if (!_processedMessages.Contains(msg_id))
                     {
                         _processedMessages.Add(msg_id);
-                        packet.Print();
+                        _gotPacketsQueue.Add(packet);
                         FsmUpdate(packet);
                     }
                 }
@@ -138,7 +130,22 @@ public class UdpChatClient : IChatClient
     public async Task Printer()
     {
         Io.DebugPrintLine("Printer started...");
-        await Task.Delay(10);
+        while (!_gotPacketsQueue.IsCompleted)
+        {
+            UdpPacket? packet = await Task.Run(() =>
+            {
+                try
+                {
+                    return _gotPacketsQueue.Take();
+                }
+                catch (InvalidOperationException)
+                {
+                    return null;
+                }
+            });
+            if (packet != null) packet.Print();
+        }
+        Io.DebugPrintLine("Printer terminated...");
     }
 
     public async Task Sender()
@@ -178,7 +185,7 @@ public class UdpChatClient : IChatClient
             if (packet.GetMsgType() == MessageTypeEnum.Auth)
             {
                 IpkProject1.AuthSem.WaitOne();
-                Io.DebugPrintLine("AuthLockObj acquired in UdpChatClient...");
+                Io.DebugPrintLine("AuthSem acquired in UdpChatClient...");
             }
 
             _sendPacketsQueue.Add((UdpPacket)packet);
@@ -186,9 +193,9 @@ public class UdpChatClient : IChatClient
         });
     }
     
-    public async Task SendDataToServer(IPacket packet) {
+    private async Task SendDataToServer(IPacket packet) {
         byte[] data = packet.ToBytes();
-        switch (ClientFsm.GetState())
+        switch (ClientFsm.State)
         {
             case FsmStateEnum.Start:
                 if (packet.GetMsgType() == MessageTypeEnum.Auth)
@@ -196,8 +203,6 @@ public class UdpChatClient : IChatClient
                 break;
         }
         int id = ((UdpPacket)packet).GetMsgId();
-        if (packet.GetMsgType() == MessageTypeEnum.Bye)
-            _byeId = id;
         for (int i = 0; i < 1 + SysArgParser.GetAppConfig().Retries; i++)
         {
             _client.Client.SendTo(data, SocketFlags.None, _endPoint);
@@ -215,7 +220,7 @@ public class UdpChatClient : IChatClient
             {
                 Io.ErrorPrintLine("ERROR: Message with id " + id + " not confirmed, max retries reached");
                 IpkProject1.TimeoutCancellationTokenSource.Cancel();
-                if (ClientFsm.GetState() != FsmStateEnum.End)
+                if (ClientFsm.State != FsmStateEnum.End)
                 {
                     lock (IpkProject1.LockObj)
                     {
