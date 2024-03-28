@@ -31,22 +31,22 @@ public class UdpPacket : IPacket
     {
         if (_msgType == MessageTypeEnum.Reply)
         {
-            bool result = _data[3] != 0;
-            string message = Encoding.ASCII.GetString(_data[6..^1]);
+            var result = _data[3] != 0;
+            var message = Encoding.ASCII.GetString(_data[6..^1]);
             Io.ErrorPrintLine((result ? "Success" : "Failure") + ": " + message);
         }
         else if (_msgType == MessageTypeEnum.Msg)
         {
-            string data = Encoding.ASCII.GetString(_data[3..^1]);
-            string dname = data.Split("\0")[0];
-            string message = data.Split("\0")[1];
+            var data = Encoding.ASCII.GetString(_data[3..^1]);
+            var dname = data.Split("\0")[0];
+            var message = data.Split("\0")[1];
             Io.PrintLine(dname + ": " + message, ConsoleColor.Green);
         }
         else if (_msgType == MessageTypeEnum.Err)
         {
-            string data = Encoding.ASCII.GetString(_data[3..^1]);
-            string dname = data.Split("\0")[0];
-            string message = data.Split("\0")[1];
+            var data = Encoding.ASCII.GetString(_data[3..^1]);
+            var dname = data.Split("\0")[0];
+            var message = data.Split("\0")[1];
             Io.ErrorPrintLine($"ERR FROM {dname}: {message}");
         }
     }
@@ -59,95 +59,101 @@ public class UdpPacket : IPacket
 
 public class UdpPacketBuilder : IPacketBuilder
 {
-    public static UdpPacket build_confirm(UInt16 msg_id)
+    private static UInt16 _counter;
+    
+    private static UInt16 GetNextId()
     {
-        MessageTypeEnum type = MessageTypeEnum.Confirm;
-        byte msg_type_byte = Convert.ToByte((int)type);
-        byte[] msg_id_bytes = BitConverter.GetBytes(msg_id);
-        byte[] data = new byte[1 + 2];
-        data[0] = msg_type_byte;
-        Array.Copy(msg_id_bytes, 0, data, 1, 2);
+        return _counter++;
+    }
+    public static UdpPacket build_confirm(UInt16 msgId)
+    {
+        var type = MessageTypeEnum.Confirm;
+        var msgTypeByte = Convert.ToByte((int)type);
+        var msgIdBytes = BitConverter.GetBytes(msgId);
+        var data = new byte[1 + 2];
+        data[0] = msgTypeByte;
+        Array.Copy(msgIdBytes, 0, data, 1, 2);
         return new UdpPacket(type, data);
     }
     public static UdpPacket build_auth(string login, string dname, string secret)
     {
-        MessageTypeEnum type = MessageTypeEnum.Auth;
-        byte msg_type_byte = Convert.ToByte((int)type);
-        byte[] msg_id_bytes = BitConverter.GetBytes((UInt16)((UdpChatClient)IpkProject1.GetClient()).GetId());
-        byte[] username_bytes = Encoding.ASCII.GetBytes(login);
-        byte[] dname_bytes = Encoding.ASCII.GetBytes(dname);
-        byte[] secret_bytes = Encoding.ASCII.GetBytes(secret);
-        byte[] data = new byte[1 + 2 + username_bytes.Length + 1 + dname_bytes.Length + 1 + secret_bytes.Length + 1];
-        data[0] = msg_type_byte;
-        Array.Copy(msg_id_bytes, 0, data, 1, 2);
-        Array.Copy(username_bytes, 0, data, 3, username_bytes.Length);
-        data[3 + username_bytes.Length] = 0;
-        Array.Copy(dname_bytes, 0, data, 3 + username_bytes.Length + 1, dname_bytes.Length);
-        data[3 + username_bytes.Length + 1 + dname_bytes.Length] = 0;
-        Array.Copy(secret_bytes, 0, data, 3 + username_bytes.Length + 1 + dname_bytes.Length + 1, secret_bytes.Length);
-        data[3 + username_bytes.Length + 1 + dname_bytes.Length + 1 + secret_bytes.Length] = 0;
+        var type = MessageTypeEnum.Auth;
+        var msgTypeByte = Convert.ToByte((int)type);
+        var msgIdBytes = BitConverter.GetBytes(GetNextId());
+        var usernameBytes = Encoding.ASCII.GetBytes(login);
+        var dnameBytes = Encoding.ASCII.GetBytes(dname);
+        var secretBytes = Encoding.ASCII.GetBytes(secret);
+        var data = new byte[1 + 2 + usernameBytes.Length + 1 + dnameBytes.Length + 1 + secretBytes.Length + 1];
+        data[0] = msgTypeByte;
+        Array.Copy(msgIdBytes, 0, data, 1, 2);
+        Array.Copy(usernameBytes, 0, data, 3, usernameBytes.Length);
+        data[3 + usernameBytes.Length] = 0;
+        Array.Copy(dnameBytes, 0, data, 3 + usernameBytes.Length + 1, dnameBytes.Length);
+        data[3 + usernameBytes.Length + 1 + dnameBytes.Length] = 0;
+        Array.Copy(secretBytes, 0, data, 3 + usernameBytes.Length + 1 + dnameBytes.Length + 1, secretBytes.Length);
+        data[3 + usernameBytes.Length + 1 + dnameBytes.Length + 1 + secretBytes.Length] = 0;
         return new UdpPacket(type, data);
 }
     
     public static UdpPacket build_msg(string dname, string msg)
     {
-        MessageTypeEnum type = MessageTypeEnum.Msg;
-        byte msg_type_byte = Convert.ToByte((int)type);
-        byte[] msg_id_bytes = BitConverter.GetBytes((UInt16)((UdpChatClient)IpkProject1.GetClient()).GetId());
-        byte[] dname_bytes = Encoding.ASCII.GetBytes(dname);
-        byte[] msg_bytes = Encoding.ASCII.GetBytes(msg);
-        byte[] data = new byte[1 + 2 + dname_bytes.Length + 1 + msg_bytes.Length + 1];
-        data[0] = msg_type_byte;
-        Array.Copy(msg_id_bytes, 0, data, 1, 2);
-        Array.Copy(dname_bytes, 0, data, 3, dname_bytes.Length);
-        data[3 + dname_bytes.Length] = 0;
-        Array.Copy(msg_bytes, 0, data, 3 + dname_bytes.Length + 1, msg_bytes.Length);
-        data[3 + dname_bytes.Length + 1 + msg_bytes.Length] = 0;
+        var type = MessageTypeEnum.Msg;
+        var msgTypeByte = Convert.ToByte((int)type);
+        var msgIdBytes = BitConverter.GetBytes(GetNextId());
+        var dnameBytes = Encoding.ASCII.GetBytes(dname);
+        var msgBytes = Encoding.ASCII.GetBytes(msg);
+        var data = new byte[1 + 2 + dnameBytes.Length + 1 + msgBytes.Length + 1];
+        data[0] = msgTypeByte;
+        Array.Copy(msgIdBytes, 0, data, 1, 2);
+        Array.Copy(dnameBytes, 0, data, 3, dnameBytes.Length);
+        data[3 + dnameBytes.Length] = 0;
+        Array.Copy(msgBytes, 0, data, 3 + dnameBytes.Length + 1, msgBytes.Length);
+        data[3 + dnameBytes.Length + 1 + msgBytes.Length] = 0;
         return new UdpPacket(type, data);
     }
     
     public static UdpPacket build_error(string dname, string msg)
     {
-        MessageTypeEnum type = MessageTypeEnum.Err;
-        byte msg_type_byte = Convert.ToByte((int)type);
-        byte[] msg_id_bytes = BitConverter.GetBytes((UInt16)((UdpChatClient)IpkProject1.GetClient()).GetId());
-        byte[] dname_bytes = Encoding.ASCII.GetBytes(dname);
-        byte[] msg_bytes = Encoding.ASCII.GetBytes(msg);
-        byte[] data = new byte[1 + 2 + dname_bytes.Length + 1 + msg_bytes.Length + 1];
-        data[0] = msg_type_byte;
-        Array.Copy(msg_id_bytes, 0, data, 1, 2);
-        Array.Copy(dname_bytes, 0, data, 3, dname_bytes.Length);
-        data[3 + dname_bytes.Length] = 0;
-        Array.Copy(msg_bytes, 0, data, 3 + dname_bytes.Length + 1, msg_bytes.Length);
-        data[3 + dname_bytes.Length + 1 + msg_bytes.Length] = 0;
+        var type = MessageTypeEnum.Err;
+        var msgTypeByte = Convert.ToByte((int)type);
+        var msgIdBytes = BitConverter.GetBytes(GetNextId());
+        var dnameBytes = Encoding.ASCII.GetBytes(dname);
+        var msgBytes = Encoding.ASCII.GetBytes(msg);
+        var data = new byte[1 + 2 + dnameBytes.Length + 1 + msgBytes.Length + 1];
+        data[0] = msgTypeByte;
+        Array.Copy(msgIdBytes, 0, data, 1, 2);
+        Array.Copy(dnameBytes, 0, data, 3, dnameBytes.Length);
+        data[3 + dnameBytes.Length] = 0;
+        Array.Copy(msgBytes, 0, data, 3 + dnameBytes.Length + 1, msgBytes.Length);
+        data[3 + dnameBytes.Length + 1 + msgBytes.Length] = 0;
         return new UdpPacket(type, data);
     }
     
     public static UdpPacket build_join(string channel, string dname)
     {
-        MessageTypeEnum type = MessageTypeEnum.Join;
-        byte msg_type_byte = Convert.ToByte((int)type);
-        byte[] msg_id_bytes = BitConverter.GetBytes((UInt16)((UdpChatClient)IpkProject1.GetClient()).GetId());
-        byte[] channel_bytes = Encoding.ASCII.GetBytes(channel);
-        byte[] dname_bytes = Encoding.ASCII.GetBytes(dname);
-        byte[] data = new byte[1 + 2 + channel_bytes.Length + 1 + dname_bytes.Length + 1];
-        data[0] = msg_type_byte;
-        Array.Copy(msg_id_bytes, 0, data, 1, 2);
-        Array.Copy(channel_bytes, 0, data, 3, channel_bytes.Length);
-        data[3 + channel_bytes.Length] = 0;
-        Array.Copy(dname_bytes, 0, data, 3 + channel_bytes.Length + 1, dname_bytes.Length);
-        data[3 + channel_bytes.Length + 1 + dname_bytes.Length] = 0;
+        var type = MessageTypeEnum.Join;
+        var msgTypeByte = Convert.ToByte((int)type);
+        var msgIdBytes = BitConverter.GetBytes(GetNextId());
+        var channelBytes = Encoding.ASCII.GetBytes(channel);
+        var dnameBytes = Encoding.ASCII.GetBytes(dname);
+        var data = new byte[1 + 2 + channelBytes.Length + 1 + dnameBytes.Length + 1];
+        data[0] = msgTypeByte;
+        Array.Copy(msgIdBytes, 0, data, 1, 2);
+        Array.Copy(channelBytes, 0, data, 3, channelBytes.Length);
+        data[3 + channelBytes.Length] = 0;
+        Array.Copy(dnameBytes, 0, data, 3 + channelBytes.Length + 1, dnameBytes.Length);
+        data[3 + channelBytes.Length + 1 + dnameBytes.Length] = 0;
         return new UdpPacket(type, data);
     }
     
     public static UdpPacket build_bye()
     {
-        MessageTypeEnum type = MessageTypeEnum.Bye;
-        byte msg_type_byte = Convert.ToByte((int)type);
-        byte[] msg_id_bytes = BitConverter.GetBytes((UInt16)((UdpChatClient)IpkProject1.GetClient()).GetId());
-        byte[] data = new byte[1 + 2];
-        data[0] = msg_type_byte;
-        Array.Copy(msg_id_bytes, 0, data, 1, 2);
+        var type = MessageTypeEnum.Bye;
+        var msgTypeByte = Convert.ToByte((int)type);
+        var msgIdBytes = BitConverter.GetBytes(GetNextId());
+        var data = new byte[1 + 2];
+        data[0] = msgTypeByte;
+        Array.Copy(msgIdBytes, 0, data, 1, 2);
         return new UdpPacket(type, data);
     }
 }
