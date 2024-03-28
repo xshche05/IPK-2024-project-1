@@ -8,15 +8,6 @@ public static class Io
     private static string[] inputBuffer;
     public static string LineTerminator { get; set; } = "\n";
 
-    public static void InitRedirectedInputState()
-    {
-        _inputRedirected = Console.IsInputRedirected;
-        if (_inputRedirected) 
-            DebugPrintLine("Input is redirected...");
-        else
-            DebugPrintLine("Input via console...");
-    }
-
     public static string? ReadLine()
     {
         return Console.ReadLine();
