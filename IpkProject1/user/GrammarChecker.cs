@@ -18,35 +18,35 @@ public static class GrammarChecker
     public static bool CheckUserName(string userName)
     {
         var flag = Regex.IsMatch(userName, _userNamePattern);
-        if (!flag) Io.DebugPrintLine("WARNING: Invalid username, please check your input!");
+        if (!flag) Io.ErrorPrintLine("ERR: Invalid username, please check your input!");
         return flag;
     }
     
     public static bool CheckChanelId(string chanelId)
     {
         var flag = Regex.IsMatch(chanelId, _chanelIdPattern);
-        if (!flag) Io.DebugPrintLine("WARNING: Invalid channel id, please check your input!");
+        if (!flag) Io.ErrorPrintLine("ERR: Invalid channel id, please check your input!");
         return flag;
     }
     
     public static bool CheckSecret(string secret)
     {
         var flag = Regex.IsMatch(secret, _secretPattern);
-        if (!flag) Io.DebugPrintLine("WARNING: Invalid secret, please check your input!");
+        if (!flag) Io.ErrorPrintLine("ERR: Invalid secret, please check your input!");
         return flag;
     }
     
     public static bool CheckDisplayName(string displayName)
     {
         var flag = Regex.IsMatch(displayName, _displayNamePattern);
-        if (!flag) Io.DebugPrintLine("WARNING: Invalid display name, please check your input!");
+        if (!flag) Io.ErrorPrintLine("ERR: Invalid display name, please check your input!");
         return flag;
     }
     
     public static bool CheckMsg(string msg)
     {
         var flag = Regex.IsMatch(msg, _msgPattern);
-        if (!flag) Io.DebugPrintLine("WARNING: Invalid message, please check your input!");
+        if (!flag) Io.ErrorPrintLine("ERR: Invalid message, please check your input!");
         return flag;
     }
 }

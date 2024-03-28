@@ -1,3 +1,5 @@
+#define DEBUG
+
 using System.Diagnostics;
 using System.Net;
 using IpkProject1.enums;
@@ -9,6 +11,7 @@ using IpkProject1.user;
 
 namespace IpkProject1.fsm;
 
+
 public static class ClientFsm
 {
     private static FsmStateEnum _state = FsmStateEnum.Start;
@@ -16,19 +19,21 @@ public static class ClientFsm
     
     private static bool _byeSent = false;
     
+    private static object _lockObj = new();
+    
     public static void SetState(FsmStateEnum stateEnum)
     {
         var prevState = _state;
         _state = stateEnum;
         
-        Debug.WriteLine($"State changed to: {_state}");
+        Io.DebugPrintLine($"State changed to: {_state}");
         
         // Send bye packet if the state is changed to End and bye packet was not sent yet
-        if (_state == FsmStateEnum.End && !InputProcessor.CancellationToken.IsCancellationRequested && !_byeSent)
+        if (_state == FsmStateEnum.End)
         {
-            InputProcessor.CancellationTokenSource?.Cancel();
-            if (!IpkProject1.TimeoutCancellationTokenSource.IsCancellationRequested)
+            lock (_lockObj)
             {
+                if (_byeSent) return;
                 IPacket? byePacket = SysArgParser.GetAppConfig().Protocol switch
                 {
                     ProtocolEnum.Udp => UdpPacketBuilder.build_bye(),
@@ -37,16 +42,17 @@ public static class ClientFsm
                 };
                 if (byePacket != null)
                 {
-                    Debug.WriteLine("Bye packet sent...");
+                    Io.DebugPrintLine("LAST Bye packet sent...");
                     IpkProject1.GetClient().AddPacketToSendQueue(byePacket);
                     _byeSent = true;
                 }
+                IpkProject1.TerminationSem.Release();
+                Io.DebugPrintLine("Termination semaphore released by END state...");
             }
         }
-        
         // Release semaphore if the state is changed from Auth to Open (REPLY OK)
         // Release semaphore if the state is changed from Auth to Auth (REPLY NOK)
-        if (_state == FsmStateEnum.Open && prevState == FsmStateEnum.Auth
+        else if (_state == FsmStateEnum.Open && prevState == FsmStateEnum.Auth
             || _state == FsmStateEnum.Auth && prevState == FsmStateEnum.Auth)
         {
             IpkProject1.AuthSem.Release();
@@ -59,7 +65,7 @@ public static class ClientFsm
         {
             if (State != FsmStateEnum.Auth && State != FsmStateEnum.Start)
             {
-                Io.PrintLine("WARNING: You are already authenticated, cannot authenticate again!", ConsoleColor.Yellow);
+                Io.ErrorPrintLine("ERR: You are already authenticated, cannot authenticate again!");
                 return false;
             }
 
@@ -69,7 +75,7 @@ public static class ClientFsm
         {
             if (State != FsmStateEnum.Open)
             {
-                Io.PrintLine("WARNING: You are not authenticated, cannot join a channel!", ConsoleColor.Yellow);
+                Io.ErrorPrintLine("ERR: You are not authenticated, cannot join a channel!");
                 return false;
             }
             return true;
@@ -78,7 +84,7 @@ public static class ClientFsm
         {
             if (State != FsmStateEnum.Open)
             {
-                Io.PrintLine("WARNING: You are not authenticated, cannot rename!", ConsoleColor.Yellow);
+                Io.ErrorPrintLine("ERR: You are not authenticated, cannot rename!");
                 return false;
             }
             return true;
@@ -87,7 +93,7 @@ public static class ClientFsm
         {
             if (State != FsmStateEnum.Open)
             {
-                Io.PrintLine("WARNING: You are not authenticated, cannot send a message!", ConsoleColor.Yellow);
+                Io.ErrorPrintLine("ERR: You are not authenticated, cannot send a message!");
                 return false;
             }
             return true;

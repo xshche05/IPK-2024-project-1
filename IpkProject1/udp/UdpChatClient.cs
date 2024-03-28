@@ -43,12 +43,17 @@ public class UdpChatClient : IChatClient
     {
         _sendPacketsQueue.CompleteAdding();
         Io.DebugPrintLine("Disconnected from server...");
-        IpkProject1.GetLastSendTask()?.Wait();
+        Task? last = IpkProject1.GetLastSendTask();
+        if (last != null)
+        {
+            last.Wait();
+        }
     }
 
     public void Close()
     {
         _client.Close();
+        _gotPacketsQueue.CompleteAdding();
     }
     
     private void FsmUpdate(IPacket packet)
@@ -97,12 +102,6 @@ public class UdpChatClient : IChatClient
                 {
                     _confirmedMessages.Add(msg_id);
                     Io.DebugPrintLine("Confirm received, id: " + msg_id);
-                    /*
-                    if (msg_id == _byeId)
-                    {
-                        Io.DebugPrintLine("Bye confirmed...");
-                        break;
-                    } */
                 }
                 else
                 {
@@ -216,19 +215,14 @@ public class UdpChatClient : IChatClient
                 Io.DebugPrintLine("Message with id " + id + " confirmed");
                 break;
             }
-            if (i == 3)
+            if (i == SysArgParser.GetAppConfig().Retries)
             {
                 Io.ErrorPrintLine("ERROR: Message with id " + id + " not confirmed, max retries reached");
-                IpkProject1.TimeoutCancellationTokenSource.Cancel();
                 if (ClientFsm.State != FsmStateEnum.End)
                 {
-                    lock (IpkProject1.LockObj)
-                    {
-                        if (!InputProcessor.CancellationToken.IsCancellationRequested) ClientFsm.SetState(FsmStateEnum.End);
-                    }
+                    ClientFsm.SetState(FsmStateEnum.End);
                 }
             }
-            
         }
     }
 }

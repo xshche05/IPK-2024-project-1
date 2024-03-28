@@ -10,8 +10,6 @@ namespace IpkProject1.user;
 public static class InputProcessor
 {
     private static string _currentDisplayName = "NONE";
-    public static readonly CancellationTokenSource? CancellationTokenSource = new ();
-    public static readonly CancellationToken CancellationToken = CancellationTokenSource.Token;
     private static IPacket? ProcessInput(string input)
     {
         IPacket? packet = null;
@@ -37,7 +35,7 @@ public static class InputProcessor
                 break;
             case ["/join", var channel]:
                 // check if the client is authenticated and if the input is in correct format
-                if (ClientFsm.IsCommandAllowed("join") 
+                if (!ClientFsm.IsCommandAllowed("join") 
                     || !GrammarChecker.CheckChanelId(channel)
                     ) break;
                 packet = SysArgParser.GetAppConfig().Protocol switch
@@ -49,7 +47,7 @@ public static class InputProcessor
                 break;
             case ["/rename", var displayName]:
                 // check if the client is authenticated and if the input is in correct format
-                if (ClientFsm.IsCommandAllowed("rename") 
+                if (!ClientFsm.IsCommandAllowed("rename") 
                     || !GrammarChecker.CheckDisplayName(displayName)
                     ) break;
                 _currentDisplayName = displayName;
@@ -63,8 +61,14 @@ public static class InputProcessor
                               "Other inputs or commands which are not in specified format will be treated as messages\n");
                 break;
             default:
+                // if starts with / it is not a message write error
+                if (input.StartsWith("/"))
+                {
+                    Io.ErrorPrintLine("ERR: Invalid command, please check your input!");
+                    break;
+                }
                 // check if the client is authenticated and if the input is in correct format
-                if (ClientFsm.IsCommandAllowed("msg") 
+                if (!ClientFsm.IsCommandAllowed("msg") 
                     || !GrammarChecker.CheckMsg(input)
                     ) break;
                 packet = SysArgParser.GetAppConfig().Protocol switch
@@ -81,28 +85,29 @@ public static class InputProcessor
     public static async Task CmdReader()
     {
         Io.DebugPrintLine("CmdReader started...");
+        string? msg = "";
         while (ClientFsm.State != FsmStateEnum.End)
         {
-            string? msg = null;
             Task getLine = Task.Run(() =>
             {
                 msg = Io.ReadLine();
             });
             try
             {
-                getLine.Wait(CancellationToken);
+                await getLine;
             }
             catch (Exception e) // todo fix Exception
             {
                 Io.DebugPrintLine(e.Message);
                 break;
             }
-            if (msg == null) break;
+            if (msg == null) ClientFsm.SetState(FsmStateEnum.End);
             IpkProject1.AuthSem.WaitOne();
             IPacket? packet = ProcessInput(msg);
+            Io.DebugPrintLine($"Packet: {packet?.GetMsgType()}");
             IpkProject1.AuthSem.Release();
             if (packet != null) await IpkProject1.GetClient().AddPacketToSendQueue(packet);
         }
-        Io.DebugPrintLine("CmdReader terminated...");
+        Io.DebugPrintLine("Termination started by CmdReader...");
     }
 }

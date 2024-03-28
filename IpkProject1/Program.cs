@@ -15,82 +15,37 @@ internal static class IpkProject1
     private static Task? _printerTask;
     private static Task? _lastSendTask;
     private static Task? _senderTask;
-    public static object LockObj { get; } = new();
     public static Semaphore AuthSem { get; } = new (1, 1);
-    public static object AuthSyncLockObj { get; } = new();
-    
-    public static CancellationTokenSource TimeoutCancellationTokenSource { get; } = new();
-    private static CancellationToken TimeoutCancellationToken => TimeoutCancellationTokenSource.Token;
-
+    public static Semaphore TerminationSem { get; } = new (0, 100);
     public static void Main(string[] args)
     {
         // print debug messages to console
         Console.CancelKeyPress += (sender, eventArgs) =>
         {
-            // Cancel the Ctrl+C signal
             eventArgs.Cancel = true;
             Io.DebugPrintLine("Ctrl+C pressed...");
-            // Set FSM to END state
-            lock (LockObj)
-            {
-                if (!InputProcessor.CancellationToken.IsCancellationRequested) ClientFsm.SetState(FsmStateEnum.End);
-            }
+            ClientFsm.SetState(FsmStateEnum.End);
         };
         SysArgParser.ParseArgs(args); // Command line arguments parsing
         SetUpClient(); // Client setup according to the protocol, host and port
-        
-        // User input processing
-        // Start cmd reader and wait for it to finish (end of input) or be cancelled by Ctrl+C
-        try
-        {
-            InputProcessor.CmdReader().Wait(InputProcessor.CancellationToken);
-        }
-        catch (Exception e)
-        {
-            Io.DebugPrintLine(e.Message);
-        }
-        
-        Io.DebugPrintLine("Input processing finished...");
-        // Set FSM to END state
-        lock (LockObj)
-        {
-            if (!InputProcessor.CancellationToken.IsCancellationRequested) ClientFsm.SetState(FsmStateEnum.End);
-        }
-        // Wait for all mandatory tasks to finish
+        // Start cmd reader
+        InputProcessor.CmdReader();
+        // Wait until termination requested
+        Io.DebugPrintLine("Waiting for termination...");
+        TerminationSem.WaitOne();
         Terminate();
-        // Exit the program
         Environment.Exit(0);
     }
 
     private static void Terminate()
     {
         Io.DebugPrintLine("Terminating...");
+
+        Task.Delay(500).Wait();
         
-        // Disconnect from the server
         _chatClient?.Disconnect();
         
-        // Wait for the sender task to finish
-        _senderTask?.Wait();
-        
-        _chatClient._isSenderTerminated = true;
-
-        try
-        {
-            // Wait for the reader task to finish
-            _readerTask?.Wait(TimeoutCancellationToken);
-        }
-        catch (Exception e)
-        {
-            Io.DebugPrintLine(e.Message);
-        }
-        finally
-        {
-            // Close the client
-            _chatClient.Close();
-        }
-        
-        // Wait for the printer task to finish
-        _printerTask?.Wait();
+        _chatClient?.Close();
     }
     
     private static void SetUpClient()

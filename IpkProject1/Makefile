@@ -1,7 +1,7 @@
 # Purpose: Makefile for the project in C# language.
 
 
-all: build_linux
+all: publish_linux
 
 build:
 	dotnet build -c Debug -o ./out

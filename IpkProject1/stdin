@@ -1,6 +1,0 @@
-/auth xshche05 7cf1aa40-5e37-4bdb-b19f-94f642970673 spagetik
-redirect msg 1
-/auth 1 2 3
-redirect msg 2
-/rename newSpagetik
-redirect msg 3

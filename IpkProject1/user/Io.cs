@@ -13,8 +13,8 @@ public static class Io
 
     public static void Print(string message, ConsoleColor? color=null)
     {
-        if (color != null)
-            Console.ForegroundColor = (ConsoleColor)color;
+        // if (color != null)
+        //     Console.ForegroundColor = (ConsoleColor)color;
         Console.Write(message);
         Console.ResetColor();
     }
@@ -40,8 +40,8 @@ public static class Io
     
     public static void ErrorPrint(string message)
     {
-        Console.ForegroundColor = ConsoleColor.Red;
         Console.Error.Write(message);
+        Console.Error.Flush();
         Console.ResetColor();
     }
     
