@@ -1,5 +1,7 @@
 namespace IpkProject1.enums;
 
+// Enum for all possible message types according to the assignment,
+// and their respective byte values for UDP communication
 public enum MessageTypeEnum
 {
     Confirm = 0x00,

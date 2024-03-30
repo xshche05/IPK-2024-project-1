@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -15,7 +14,6 @@ public class TcpChatClient : IChatClient
     private readonly TcpClient _client = new ();
     private readonly BlockingCollection<TcpPacket> _gotPacketsQueue = new ();
     private readonly BlockingCollection<TcpPacket> _sendPacketsQueue = new ();
-    public bool _isSenderTerminated { get; set; } = false;
     
     public void Connect(string host, int port)
     {
@@ -55,49 +53,11 @@ public class TcpChatClient : IChatClient
     private async Task SendDataToServer(IPacket packet)
     {
         byte[] data = packet.ToBytes();
-        if (packet.GetMsgType() == MessageTypeEnum.Err)
+        if (packet.Type == MessageTypeEnum.Err)
         {
             ClientFsm.SetState(FsmStateEnum.Error);
         }
         await _client.Client.SendAsync(data, SocketFlags.None);
-    }
-    
-    private void FsmUpdate(IPacket packet)
-    {
-        switch (ClientFsm.State)
-        {
-            case FsmStateEnum.Auth:
-                if (packet.GetMsgType() == MessageTypeEnum.Err)
-                {
-                    ClientFsm.SetState(FsmStateEnum.End);
-                }
-                else if (packet.GetMsgType() == MessageTypeEnum.Reply && Encoding.ASCII.GetString(packet.ToBytes())
-                             .ToUpper()
-                             .StartsWith("REPLY OK"))
-                {
-                    ClientFsm.SetState(FsmStateEnum.Open);
-                }
-                else if (packet.GetMsgType() == MessageTypeEnum.Reply && Encoding.ASCII.GetString(packet.ToBytes())
-                             .ToUpper()
-                             .StartsWith("REPLY NOK"))
-                {
-                    ClientFsm.SetState(FsmStateEnum.Auth);
-                }
-                break;
-            case FsmStateEnum.Open:
-                if (packet.GetMsgType() == MessageTypeEnum.Err)
-                {
-                    ClientFsm.SetState(FsmStateEnum.End);
-                }
-                else if (packet.GetMsgType() == MessageTypeEnum.Bye)
-                {
-                    ClientFsm.SetState(FsmStateEnum.End);
-                }
-                break;
-            default:
-                Io.DebugPrintLine("Unknown state...");
-                break;
-        }
     }
     
     public async Task Reader()
@@ -128,8 +88,8 @@ public class TcpChatClient : IChatClient
                 {
                     TcpPacket packet = TcpPacketParser.Parse(msg+"\r\n");
                     _gotPacketsQueue.Add(packet);
-                    FsmUpdate(packet);
-                    Io.DebugPrintLine($"Packet added to got queue {packet.GetMsgType()}");
+                    ClientFsm.FsmUpdate(packet);
+                    Io.DebugPrintLine($"Packet added to got queue {packet.Type}");
                 }
             }
         }
@@ -176,19 +136,19 @@ public class TcpChatClient : IChatClient
                 }
             });
             await getTask;
-            Io.DebugPrintLine($"Got packet from queue: {p?.GetMsgType()}");
+            Io.DebugPrintLine($"Got packet from queue: {p?.Type}");
             if (p != null)
             {
                 var last = SendDataToServer(p);
                 IpkProject1.SetLastSendTask(last);
                 await last;
-                Io.DebugPrintLine($"Send packet to server {p.GetMsgType()}...");
+                Io.DebugPrintLine($"Send packet to server {p.Type}...");
             }
         }
     }
     public void AddPacketToSendQueue(IPacket packet)
     {
-        if (packet.GetMsgType() == MessageTypeEnum.Auth)
+        if (packet.Type == MessageTypeEnum.Auth)
         {
             IpkProject1.AuthSem.WaitOne();
             Io.DebugPrintLine("AuthSem acquired in TcpChatClient...");

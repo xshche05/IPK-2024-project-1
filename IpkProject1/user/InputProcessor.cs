@@ -16,6 +16,13 @@ public static class InputProcessor
     {
         IPacket? packet = null;
         var msgParts = input.Split(" ");
+        IPacketBuilder? builder = SysArgParser.Config.Protocol switch
+        {
+            ProtocolEnum.Udp => new UdpPacketBuilder(),
+            ProtocolEnum.Tcp => new TcpPacketBuilder(),
+            _ => null
+        };
+        if (builder == null) return null;
         switch (msgParts)
         {
             case ["/auth", var username, var secret, var displayName]:
@@ -25,12 +32,7 @@ public static class InputProcessor
                     !GrammarChecker.CheckSecret(secret) ||
                     !GrammarChecker.CheckDisplayName(displayName)) break;
                 // if udp build UdpPacketBuilder, if tcp build TcpPacketBuilder
-                packet = SysArgParser.GetAppConfig().Protocol switch
-                {
-                    ProtocolEnum.Udp => UdpPacketBuilder.build_auth(username, displayName, secret),
-                    ProtocolEnum.Tcp => TcpPacketBuilder.build_auth(username, displayName, secret),
-                    _ => null
-                };
+                packet = builder.build_auth(username, displayName, secret);
                 // update current display name
                 _currentDisplayName = displayName;
                 if (ClientFsm.State == FsmStateEnum.Start)
@@ -42,12 +44,7 @@ public static class InputProcessor
                 // check if the client is authenticated and if the input is in correct format
                 if (!ClientFsm.IsCommandAllowed("join") ||
                     !GrammarChecker.CheckChanelId(channel)) break;
-                packet = SysArgParser.GetAppConfig().Protocol switch
-                {
-                    ProtocolEnum.Udp => UdpPacketBuilder.build_join(channel, _currentDisplayName),
-                    ProtocolEnum.Tcp => TcpPacketBuilder.build_join(channel, _currentDisplayName),
-                    _ => null
-                };
+                packet = builder.build_join(channel, _currentDisplayName);
                 break;
             case ["/rename", var displayName]:
                 // check if the client is authenticated and if the input is in correct format
@@ -73,12 +70,7 @@ public static class InputProcessor
                 // check if the client is authenticated and if the input is in correct format
                 if (!ClientFsm.IsCommandAllowed("msg") ||
                     !GrammarChecker.CheckMsg(input)) break;
-                packet = SysArgParser.GetAppConfig().Protocol switch
-                {
-                    ProtocolEnum.Udp => UdpPacketBuilder.build_msg(_currentDisplayName, input),
-                    ProtocolEnum.Tcp => TcpPacketBuilder.build_msg(_currentDisplayName, input),
-                    _ => null
-                };
+                packet = builder.build_msg(_currentDisplayName, input);
                 break;
         }
         return packet;
@@ -100,7 +92,7 @@ public static class InputProcessor
             else
             {
                 packet = ProcessInput(msg); // Process user input
-                Io.DebugPrintLine($"Packet: {packet?.GetMsgType()}");
+                Io.DebugPrintLine($"Packet: {packet?.Type}");
             }
             IpkProject1.AuthSem.Release();
             // packet is null in case of invalid input, rename, help

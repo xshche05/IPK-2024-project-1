@@ -1,7 +1,3 @@
-#define DEBUG
-
-using System.Diagnostics;
-using System.Net;
 using IpkProject1.enums;
 using IpkProject1.interfaces;
 using IpkProject1.sysarg;
@@ -14,13 +10,16 @@ namespace IpkProject1.fsm;
 
 public static class ClientFsm
 {
+    // Current state of the client's FSM, initially set to Start
     private static FsmStateEnum _state = FsmStateEnum.Start;
+    // Property to access the current state of the client's FSM
     public static FsmStateEnum State => _state;
+    // Flag to determine if the bye packet was already sent
+    private static bool _byeSentFlag = false;
+    // Lock object for the End state
+    private static readonly object EndLockObj = new();
     
-    private static bool _byeSent = false;
-    
-    private static object _lockObj = new();
-    
+    // Method to set the state of the client's FSM
     public static void SetState(FsmStateEnum stateEnum)
     {
         var prevState = _state;
@@ -32,30 +31,29 @@ public static class ClientFsm
         // Send bye packet if the state is changed to End and bye packet was not sent yet
         if (_state == FsmStateEnum.End && prevState != FsmStateEnum.End)
         {
-            lock (_lockObj)
+            lock (EndLockObj)
             {
-                if (_byeSent) return;
-                IPacket? byePacket = SysArgParser.GetAppConfig().Protocol switch
+                if (_byeSentFlag) return;
+                IPacket? byePacket = SysArgParser.Config.Protocol switch
                 {
-                    ProtocolEnum.Udp => UdpPacketBuilder.build_bye(),
-                    ProtocolEnum.Tcp => TcpPacketBuilder.build_bye(),
+                    ProtocolEnum.Udp => new UdpPacketBuilder().build_bye(),
+                    ProtocolEnum.Tcp => new TcpPacketBuilder().build_bye(),
                     _ => null
                 };
                 if (byePacket != null)
                 {
                     Io.DebugPrintLine("LAST Bye packet sent...");
                     IpkProject1.GetClient().AddPacketToSendQueue(byePacket);
-                    _byeSent = true;
+                    _byeSentFlag = true;
                 }
                 IpkProject1.TerminationSem.Release();
                 Io.DebugPrintLine("Termination semaphore released by END state...");
             }
         }
-        // Release semaphore if the state is changed from Auth to Open (REPLY OK)
-        // Release semaphore if the state is changed from Auth to Auth (REPLY NOK)
         else if (_state == FsmStateEnum.Open && prevState == FsmStateEnum.Auth
             || _state == FsmStateEnum.Auth && prevState == FsmStateEnum.Auth)
         {
+            // Release semaphore if the state is changed from Auth to Open (REPLY OK) or Auth to Auth (REPLY NOK)
             Io.DebugPrintLine("Auth semaphore released...");
             IpkProject1.AuthSem.Release();
         }
@@ -64,46 +62,66 @@ public static class ClientFsm
             SetState(FsmStateEnum.End);
         }
     }
-
+    
+    // Method to check if a command (message) is allowed in the current state of the client's FSM
     public static bool IsCommandAllowed(string command)
     {
-        if (command == "auth")
+        bool flag = false;
+        switch (command)
         {
-            if (State != FsmStateEnum.Auth && State != FsmStateEnum.Start)
-            {
-                Io.ErrorPrintLine("ERR: You are already authenticated, cannot authenticate again!");
-                return false;
-            }
-
-            return true;
+            case "auth": // Check if the command is allowed in the current state
+                flag = State == FsmStateEnum.Auth || State == FsmStateEnum.Start;
+                if (!flag) Io.ErrorPrintLine("ERR: You was already authenticated!");
+                return flag;
+            case "join":
+                flag = State == FsmStateEnum.Open; // Check if the command is allowed in the current state
+                if (!flag) Io.ErrorPrintLine("ERR: You must be authenticated to join a chat room!");
+                return flag;
+            case "rename":
+                flag = State == FsmStateEnum.Open; // Check if the command is allowed in the current state
+                if (!flag) Io.ErrorPrintLine("ERR: You must be authenticated to rename yourself!");
+                return flag;
+            case "msg":
+                flag = State == FsmStateEnum.Open; // Check if the command is allowed in the current state
+                if (!flag) Io.ErrorPrintLine("ERR: You must be authenticated to send a message!");
+                return flag;
+            default:
+                return flag;
         }
-        if (command == "join")
+    }
+    
+    // Method to update the client's FSM according to the received packet
+    public static void FsmUpdate(IPacket p)
+    {
+        switch (State)
         {
-            if (State != FsmStateEnum.Open)
-            {
-                Io.ErrorPrintLine("ERR: You are not authenticated, cannot join a channel!");
-                return false;
-            }
-            return true;
+            case FsmStateEnum.Auth:
+                if (p.Type == MessageTypeEnum.Err)
+                {
+                    SetState(FsmStateEnum.End);
+                }
+                else if (p.Type == MessageTypeEnum.Reply && p.ToBytes()[3] == 1)
+                {
+                    SetState(FsmStateEnum.Open);
+                }
+                else if (p.Type == MessageTypeEnum.Reply && p.ToBytes()[3] == 0)
+                {
+                    SetState(FsmStateEnum.Auth);
+                }
+                break;
+            case FsmStateEnum.Open:
+                if (p.Type == MessageTypeEnum.Err)
+                {
+                    SetState(FsmStateEnum.End);
+                }
+                else if (p.Type == MessageTypeEnum.Bye)
+                {
+                    SetState(FsmStateEnum.End);
+                }
+                break;
+            default:
+                Io.DebugPrintLine("Unknown state...");
+                break;
         }
-        if (command == "rename")
-        {
-            if (State != FsmStateEnum.Open)
-            {
-                Io.ErrorPrintLine("ERR: You are not authenticated, cannot rename!");
-                return false;
-            }
-            return true;
-        }
-        if (command == "msg")
-        {
-            if (State != FsmStateEnum.Open)
-            {
-                Io.ErrorPrintLine("ERR: You are not authenticated, cannot send a message!");
-                return false;
-            }
-            return true;
-        }
-        return false;
     }
 }   

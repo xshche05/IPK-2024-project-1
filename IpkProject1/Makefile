@@ -10,7 +10,7 @@ publish_linux:
 	dotnet publish -r linux-x64 -c Release -o ./out /p:PublishSingleFile=true /p:PublishTrimmed=true
 	mv ./out/IpkProject1 ./ipk24chat-client
 
-build_windows:
+publish_windows:
 	dotnet publish -r win-x64 -c Release -o ./out /p:PublishSingleFile=true /p:PublishTrimmed=true
 	mv ./out/IpkProject1.exe ./ipk24chat-client.exe
 

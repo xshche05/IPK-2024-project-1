@@ -54,21 +54,15 @@ internal static class IpkProject1
     private static void SetUpClient()
     {
         // Get the configuration from the command line arguments
-        var config = SysArgParser.GetAppConfig();
+        var config = SysArgParser.Config;
         // Initialize the client according to the protocol or exit if the protocol is invalid
         if (config.Protocol == ProtocolEnum.Tcp)
             _chatClient = new TcpChatClient(); 
         else if (config.Protocol == ProtocolEnum.Udp)
             _chatClient = new UdpChatClient();
-        else
+        if (_chatClient == null || config.Host == null)
         {
-            Console.Error.WriteLine("Invalid protocol or not specified");
-            Environment.Exit(1);
-        }
-        // Check if the host is specified
-        if (config.Host == null)
-        {
-            Console.Error.WriteLine("Host not specified");
+            Io.ErrorPrintLine("Arguments error! Use -h for help.");
             Environment.Exit(1);
         }
         // Connect to the server or bind to the host

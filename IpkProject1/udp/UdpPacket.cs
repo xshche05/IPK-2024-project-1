@@ -7,9 +7,10 @@ namespace IpkProject1.udp;
 
 public class UdpPacket : IPacket
 {
-    private MessageTypeEnum _msgType;
-    private byte[] _data;
-    private UInt16 _msgId;
+    private readonly MessageTypeEnum _msgType;
+    private readonly byte[] _data;
+    private readonly UInt16 _msgId;
+    public MessageTypeEnum Type => _msgType;
     
     public UdpPacket(MessageTypeEnum msgType, byte[] data)
     {
@@ -33,6 +34,7 @@ public class UdpPacket : IPacket
         string data;
         string dname;
         string message;
+        var builder = new UdpPacketBuilder();
         switch (_msgType)
         {
             case MessageTypeEnum.Reply:
@@ -40,7 +42,7 @@ public class UdpPacket : IPacket
                 message = Encoding.ASCII.GetString(_data[6..^1]);
                 if (!GrammarChecker.CheckMsg(message, true))
                 {
-                    var grammarErr = UdpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid message!");
+                    var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
                     Io.ErrorPrintLine("ERR: Invalid message!");
                     break;
@@ -52,7 +54,7 @@ public class UdpPacket : IPacket
                 dname = data.Split("\0")[0];
                 if (!GrammarChecker.CheckDisplayName(dname, true))
                 {
-                    var grammarErr = UdpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid display name!");
+                    var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid display name!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
                     Io.ErrorPrintLine("ERR: Invalid display name!");
                     break;
@@ -60,7 +62,7 @@ public class UdpPacket : IPacket
                 message = data.Split("\0")[1];
                 if (!GrammarChecker.CheckMsg(message, true))
                 {
-                    var grammarErr = UdpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid message!");
+                    var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
                     Io.ErrorPrintLine("ERR: Invalid message!");
                     break;
@@ -72,7 +74,7 @@ public class UdpPacket : IPacket
                 dname = data.Split("\0")[0];
                 if (!GrammarChecker.CheckDisplayName(dname, true))
                 {
-                    var grammarErr = UdpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid display name!");
+                    var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid display name!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
                     Io.ErrorPrintLine("ERR: Invalid display name!");
                     break;
@@ -80,7 +82,7 @@ public class UdpPacket : IPacket
                 message = data.Split("\0")[1];
                 if (!GrammarChecker.CheckMsg(message, true))
                 {
-                    var grammarErr = UdpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid message!");
+                    var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
                     Io.ErrorPrintLine("ERR: Invalid message!");
                     break;
@@ -89,10 +91,14 @@ public class UdpPacket : IPacket
                 break;
         }
     }
-    
-    public MessageTypeEnum GetMsgType()
+
+    public bool? ReplyState()
     {
-        return _msgType;
+        if (_msgType == MessageTypeEnum.Reply)
+        {
+            return _data[3] != 0;
+        }
+        return null;
     }
 }
 
@@ -107,7 +113,7 @@ public class UdpPacketBuilder : IPacketBuilder
         _counter++;
         return ret;
     }
-    public static UdpPacket build_confirm(UInt16 msgId)
+    public UdpPacket build_confirm(UInt16 msgId)
     {
         var type = MessageTypeEnum.Confirm;
         var msgTypeByte = Convert.ToByte((int)type);
@@ -117,7 +123,7 @@ public class UdpPacketBuilder : IPacketBuilder
         Array.Copy(msgIdBytes, 0, data, 1, 2);
         return new UdpPacket(type, data);
     }
-    public static UdpPacket build_auth(string login, string dname, string secret)
+    public UdpPacket build_auth(string login, string dname, string secret)
     {
         var type = MessageTypeEnum.Auth;
         var msgTypeByte = Convert.ToByte((int)type);
@@ -137,7 +143,7 @@ public class UdpPacketBuilder : IPacketBuilder
         return new UdpPacket(type, data);
 }
     
-    public static UdpPacket build_msg(string dname, string msg)
+    public UdpPacket build_msg(string dname, string msg)
     {
         var type = MessageTypeEnum.Msg;
         var msgTypeByte = Convert.ToByte((int)type);
@@ -154,7 +160,7 @@ public class UdpPacketBuilder : IPacketBuilder
         return new UdpPacket(type, data);
     }
     
-    public static UdpPacket build_error(string dname, string msg)
+    public UdpPacket build_error(string dname, string msg)
     {
         var type = MessageTypeEnum.Err;
         var msgTypeByte = Convert.ToByte((int)type);
@@ -171,7 +177,7 @@ public class UdpPacketBuilder : IPacketBuilder
         return new UdpPacket(type, data);
     }
     
-    public static UdpPacket build_join(string channel, string dname)
+    public UdpPacket build_join(string channel, string dname)
     {
         var type = MessageTypeEnum.Join;
         var msgTypeByte = Convert.ToByte((int)type);
@@ -188,7 +194,7 @@ public class UdpPacketBuilder : IPacketBuilder
         return new UdpPacket(type, data);
     }
     
-    public static UdpPacket build_bye()
+    public UdpPacket build_bye()
     {
         var type = MessageTypeEnum.Bye;
         var msgTypeByte = Convert.ToByte((int)type);
