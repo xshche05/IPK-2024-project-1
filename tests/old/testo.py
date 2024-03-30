@@ -189,7 +189,7 @@ class ExecutableTester:
 
     def teardown(self):
         if self.process:
-            self.process.send_signal(signal.CTRL_C_EVENT)
+            self.process.send_signal(signal.SIGINT)
             if not self.connection_socket:
                 self.receive_message_and_confirm_udp()
             self.process.wait()
