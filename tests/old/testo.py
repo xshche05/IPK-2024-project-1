@@ -35,7 +35,6 @@ def testcase(func):
         except AssertionError as e:
             print(colored(f"❌ Test '{func.__name__}': FAILED - {e}", "red"))
         except Exception as e:
-            raise e
             print(colored(f"❌ Test '{func.__name__}': ERROR - {e}", "red"))
         print(colored(f"Test '{func.__name__}' finished", "yellow"))
         tester.teardown()  # Clean up after test
@@ -64,6 +63,7 @@ class ExecutableTester:
         self.server_socket = None
         self.connection_socket = None  # For TCP connections
         self.client_address = None  # For UDP responses
+        self.tcp_msg_buffer = ""
 
     def start_server(self, protocol, port):
         if protocol.lower() == "tcp":
@@ -101,7 +101,17 @@ class ExecutableTester:
             self.server_socket.settimeout(timeout)
             try:
                 if self.connection_socket:  # TCP
-                    return self.connection_socket.recv(1024).decode()
+                    if "\r\n" in self.tcp_msg_buffer:
+                        ret, self.tcp_msg_buffer = self.tcp_msg_buffer.split("\r\n", 1)
+                        return ret + "\r\n"
+                    else:
+                        self.connection_socket.setblocking(0)
+                        self.tcp_msg_buffer += self.connection_socket.recv(1024).decode()
+                        self.connection_socket.setblocking(1)
+                        if "\r\n" in self.tcp_msg_buffer:
+                            ret, self.tcp_msg_buffer = self.tcp_msg_buffer.split("\r\n", 1)
+                            return ret + "\r\n"
+                        return ""
                 else:  # UDP
                     message, self.client_address = self.server_socket.recvfrom(1024)
                     # print("Message: ", message)
@@ -496,6 +506,138 @@ def udp_msg(tester):
         message == b"\x04\x00\x01c\x00ahojky\x00"
     ), "Incoming message does not match expected MSG message."
 
+@testcase
+def udp_err_in_dname_too_long(tester):
+    auth_and_reply(tester)
+
+    tester.execute("ahojky")
+
+    # Expect the message to be received by the server
+    message = tester.receive_message_and_confirm_udp()
+    assert (
+        message == b"\x04\x00\x01c\x00ahojky\x00"
+    ), "Incoming message does not match expected MSG message."
+
+    tester.send_message(b"\x04\x00\x01" + b"X" * 1024 + b"\x00" + b"X" * 1024 + b"\x00")
+
+    sleep(0.2)
+
+    confirm = tester.receive_message()
+
+    assert (
+        confirm == b"\x00\x00\x01"
+    ), "Incoming message does not match expected CONFIRM message."
+
+    msg = tester.receive_message_and_confirm_udp()
+
+    stderr = tester.get_stderr()
+    assert any(
+        ["ERR: " in line for line in stderr.split("\n")]
+    ), "Output does not match expected 'ERR: ' output."
+
+    assert (
+            b"\xfe\x00\x02c\x00" in msg
+    ), "Incoming message does not match expected ERR message."
+
+@testcase
+def udp_err_in_dname_not_allowed(tester):
+    auth_and_reply(tester)
+
+    tester.execute("ahojky")
+
+    # Expect the message to be received by the server
+    message = tester.receive_message_and_confirm_udp()
+    assert (
+        message == b"\x04\x00\x01c\x00ahojky\x00"
+    ), "Incoming message does not match expected MSG message."
+
+    tester.send_message(b"\x04\x00\x01" + b"\n" * 10 + b"\x00" + b"X" * 1024 + b"\x00")
+
+    sleep(0.2)
+
+    confirm = tester.receive_message()
+
+    assert (
+        confirm == b"\x00\x00\x01"
+    ), "Incoming message does not match expected CONFIRM message."
+
+    msg = tester.receive_message_and_confirm_udp()
+
+    stderr = tester.get_stderr()
+    assert any(
+        ["ERR: " in line for line in stderr.split("\n")]
+    ), "Output does not match expected 'ERR: ' output."
+
+    assert (
+            b"\xfe\x00\x02c\x00" in msg
+    ), "Incoming message does not match expected ERR message."
+
+@testcase
+def udp_err_in_msg_too_long(tester):
+    auth_and_reply(tester)
+
+    tester.execute("ahojky")
+
+    # Expect the message to be received by the server
+    message = tester.receive_message_and_confirm_udp()
+    assert (
+        message == b"\x04\x00\x01c\x00ahojky\x00"
+    ), "Incoming message does not match expected MSG message."
+
+    tester.send_message(b"\x04\x00\x01" + b"X" * 10 + b"\x00" + b"X" * 1500 + b"\x00")
+
+    sleep(0.2)
+
+    confirm = tester.receive_message()
+
+    assert (
+        confirm == b"\x00\x00\x01"
+    ), "Incoming message does not match expected CONFIRM message."
+
+    msg = tester.receive_message_and_confirm_udp()
+
+    stderr = tester.get_stderr()
+    assert any(
+        ["ERR: " in line for line in stderr.split("\n")]
+    ), "Output does not match expected 'ERR: ' output."
+
+    assert (
+            b"\xfe\x00\x02c\x00" in msg
+    ), "Incoming message does not match expected ERR message."
+
+
+@testcase
+def udp_err_in_msg_not_allowed(tester):
+    auth_and_reply(tester)
+
+    tester.execute("ahojky")
+
+    # Expect the message to be received by the server
+    message = tester.receive_message_and_confirm_udp()
+    assert (
+        message == b"\x04\x00\x01c\x00ahojky\x00"
+    ), "Incoming message does not match expected MSG message."
+
+    tester.send_message(b"\x04\x00\x01" + b"X" * 10 + b"\x00" + b"\n" * 10 + b"\x00")
+
+    sleep(0.2)
+
+    confirm = tester.receive_message()
+
+    assert (
+        confirm == b"\x00\x00\x01"
+    ), "Incoming message does not match expected CONFIRM message."
+
+    msg = tester.receive_message_and_confirm_udp()
+
+    stderr = tester.get_stderr()
+    assert any(
+        ["ERR: " in line for line in stderr.split("\n")]
+    ), "Output does not match expected 'ERR: ' output."
+
+    assert (
+            b"\xfe\x00\x02c\x00" in msg
+    ), "Incoming message does not match expected ERR message."
 
 @testcase
 def udp_svr_msg(tester):
@@ -964,6 +1106,148 @@ def tcp_svr_msg(tester):
 
 
 @testcase
+def tcp_invalid_packet(tester):
+    tcp_auth_and_reply(tester)
+
+    # Send invalid message
+    tester.send_message("TVOJE MAMINKA\r\n")
+
+    sleep(0.2)
+
+    msg = tester.receive_message()
+
+    assert (
+        msg.upper().startswith("ERR FROM C IS")
+    ), "Incoming message does not match expected error message."
+
+    msg = tester.receive_message()
+
+    assert (
+        msg.upper() == "BYE\r\n"
+    ), "Incoming message does not match expected BYE message."
+
+    # Check the output, should contain "ERR: "
+    stderr = tester.get_stderr()
+    assert any(
+        ["ERR: " in line for line in stderr.split("\n")]
+    ), "Output does not match expected 'ERR: ' output."
+
+
+@testcase
+def tcp_unsupported_command(tester):
+    tcp_auth_and_reply(tester)
+
+    # Send unsupported command
+    tester.send_message("JOIN discord AS ggg\r\n")
+
+    sleep(0.2)
+
+    msg = tester.receive_message()
+
+    assert (
+        msg.upper().startswith("ERR FROM C IS")
+    ), "Incoming message does not match expected error message."
+
+    msg = tester.receive_message()
+
+    assert (
+            msg.upper() == "BYE\r\n"
+    ), "Incoming message does not match expected BYE message."
+
+    # Check the output, should contain "ERR: "
+    stderr = tester.get_stderr()
+    assert any(
+        ["ERR: " in line for line in stderr.split("\n")]
+    ), "Output does not match expected 'ERR: ' output."
+
+
+@testcase
+def tcp_msg_grammar_error(tester):
+    tcp_auth_and_reply(tester)
+
+    # Send unsupported command
+    tester.send_message("MSG discord FROM GGG IS GGGG\r\n")
+
+    sleep(0.2)
+
+    msg = tester.receive_message()
+
+    assert (
+        msg.upper().startswith("ERR FROM C IS")
+    ), "Incoming message does not match expected error message."
+
+    msg = tester.receive_message()
+
+    assert (
+            msg.upper() == "BYE\r\n"
+    ), "Incoming message does not match expected BYE message."
+
+    # Check the output, should contain "ERR: "
+    stderr = tester.get_stderr()
+    assert any(
+        ["ERR: " in line for line in stderr.split("\n")]
+    ), "Output does not match expected 'ERR: ' output."
+
+
+@testcase
+def tcp_msg_username_too_long(tester):
+    tcp_auth_and_reply(tester)
+
+    # Send unsupported command
+    tester.send_message("MSG FROM 123456789012345678901 IS GGGG\r\n")
+
+    sleep(0.2)
+
+    msg = tester.receive_message()
+
+    assert (
+        msg.upper().startswith("ERR FROM C IS")
+    ), "Incoming message does not match expected error message."
+
+    msg = tester.receive_message()
+
+    assert (
+            msg.upper() == "BYE\r\n"
+    ), "Incoming message does not match expected BYE message."
+
+    tester.receive_message()
+
+    # Check the output, should contain "ERR: "
+    stderr = tester.get_stderr()
+    assert any(
+        ["ERR: " in line for line in stderr.split("\n")]
+    ), "Output does not match expected 'ERR: ' output."
+
+@testcase
+def tcp_msg_too_long(tester):
+    tcp_auth_and_reply(tester)
+
+    # Send unsupported command
+    tester.send_message(f"MSG FROM server IS {'g' * 1500}\r\n")
+
+    sleep(0.2)
+
+    msg = tester.receive_message()
+
+    assert (
+        msg.upper().startswith("ERR FROM C IS")
+    ), "Incoming message does not match expected error message."
+
+    msg = tester.receive_message()
+
+    assert (
+            msg.upper() == "BYE\r\n"
+    ), "Incoming message does not match expected BYE message."
+
+    tester.receive_message()
+
+    # Check the output, should contain "ERR: "
+    stderr = tester.get_stderr()
+    assert any(
+        ["ERR: " in line for line in stderr.split("\n")]
+    ), "Output does not match expected 'ERR: ' output."
+
+@testcase
 def tcp_bye1(tester):
     tester.start_server("tcp", 4567)
     tester.setup(args=["-t", "tcp", "-s", "localhost", "-p", "4567"])
@@ -972,6 +1256,8 @@ def tcp_bye1(tester):
 
     # Send a message from the server
     tester.send_signal(signal.SIGINT)
+
+    sleep(0.5)
 
     message = tester.receive_message()
     assert message == "BYE\r\n", "Incoming message does not match expected BYE message."
@@ -987,6 +1273,8 @@ def tcp_bye2(tester):
     # Send a message from the server
     tester.process.stdin.close()
 
+    sleep(0.5)
+
     message = tester.receive_message()
     assert message == "BYE\r\n", "Incoming message does not match expected BYE message."
 
@@ -997,6 +1285,8 @@ def tcp_bye3(tester):
 
     # Send a message from the server
     tester.process.stdin.close()
+
+    sleep(0.5)
 
     message = tester.receive_message()
     assert message == "BYE\r\n", "Incoming message does not match expected BYE message."
