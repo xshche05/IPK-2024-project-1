@@ -26,10 +26,11 @@ public static class ClientFsm
         var prevState = _state;
         _state = stateEnum;
         
+        Io.DebugPrintLine($"Previous state: {prevState}");
         Io.DebugPrintLine($"State changed to: {_state}");
         
         // Send bye packet if the state is changed to End and bye packet was not sent yet
-        if (_state == FsmStateEnum.End)
+        if (_state == FsmStateEnum.End && prevState != FsmStateEnum.End)
         {
             lock (_lockObj)
             {
@@ -55,7 +56,12 @@ public static class ClientFsm
         else if (_state == FsmStateEnum.Open && prevState == FsmStateEnum.Auth
             || _state == FsmStateEnum.Auth && prevState == FsmStateEnum.Auth)
         {
+            Io.DebugPrintLine("Auth semaphore released...");
             IpkProject1.AuthSem.Release();
+        }
+        else if (_state == FsmStateEnum.Error)
+        {
+            SetState(FsmStateEnum.End);
         }
     }
 
