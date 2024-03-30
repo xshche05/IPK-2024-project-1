@@ -36,17 +36,17 @@ public static class GrammarChecker
         return flag;
     }
     
-    public static bool CheckDisplayName(string displayName)
+    public static bool CheckDisplayName(string displayName, bool server = false)
     {
         var flag = Regex.IsMatch(displayName, _displayNamePattern);
-        if (!flag) Io.ErrorPrintLine("ERR: Invalid display name, please check your input!");
+        if (!flag && !server) Io.ErrorPrintLine("ERR: Invalid display name, please check your input!");
         return flag;
     }
     
-    public static bool CheckMsg(string msg)
+    public static bool CheckMsg(string msg, bool server = false)
     {
         var flag = Regex.IsMatch(msg, _msgPattern);
-        if (!flag) Io.ErrorPrintLine("ERR: Invalid message, please check your input!");
+        if (!flag && !server) Io.ErrorPrintLine("ERR: Invalid message, please check your input!");
         return flag;
     }
 }
