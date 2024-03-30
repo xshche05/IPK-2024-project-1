@@ -2,9 +2,13 @@ using IpkProject1.enums;
 
 namespace IpkProject1.sysarg;
 
+// todo write help
+
 public class SysArgParser
 {
     private static AppConfig Config { get; set; } = new AppConfig();
+    
+    const string Help = "Usage: IpkProject1 -t <tcp|udp> -s <host> [-p <port>] [-d <timeout>] [-r <retries>] [-h]";
     
     public static void ParseArgs(string[] args)
     {

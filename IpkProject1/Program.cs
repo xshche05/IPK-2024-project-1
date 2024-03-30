@@ -11,10 +11,8 @@ namespace IpkProject1;
 internal static class IpkProject1
 {
     private static IChatClient? _chatClient;
-    private static Task? _readerTask;
     private static Task? _printerTask;
     private static Task? _lastSendTask;
-    private static Task? _senderTask;
     public static Semaphore AuthSem { get; } = new (1, 1);
     public static Semaphore TerminationSem { get; } = new (0, 100);
     public static void Main(string[] args)
@@ -26,8 +24,10 @@ internal static class IpkProject1
             Io.DebugPrintLine("Ctrl+C pressed...");
             ClientFsm.SetState(FsmStateEnum.End);
         };
-        SysArgParser.ParseArgs(args); // Command line arguments parsing
-        SetUpClient(); // Client setup according to the protocol, host and port
+        // Command line arguments parsing
+        SysArgParser.ParseArgs(args);
+        // Client setup according to the protocol, host and port
+        SetUpClient();
         // Start cmd reader
         InputProcessor.CmdReader();
         // Wait until termination requested
@@ -40,11 +40,14 @@ internal static class IpkProject1
     private static void Terminate()
     {
         Io.DebugPrintLine("Terminating...");
-
-        Task.Delay(500).Wait();
         
+        // Start up the termination process
         _chatClient?.Disconnect();
         
+        // Wait printer to finish the got packets queue
+        _printerTask?.Wait();
+        
+        // Close the client
         _chatClient?.Close();
     }
     
@@ -52,7 +55,6 @@ internal static class IpkProject1
     {
         // Get the configuration from the command line arguments
         var config = SysArgParser.GetAppConfig();
-        
         // Initialize the client according to the protocol or exit if the protocol is invalid
         if (config.Protocol == ProtocolEnum.Tcp)
             _chatClient = new TcpChatClient(); 
@@ -63,21 +65,18 @@ internal static class IpkProject1
             Console.Error.WriteLine("Invalid protocol or not specified");
             Environment.Exit(1);
         }
-        
         // Check if the host is specified
         if (config.Host == null)
         {
             Console.Error.WriteLine("Host not specified");
             Environment.Exit(1);
         }
-        
         // Connect to the server or bind to the host
         _chatClient.Connect(config.Host, config.Port);
-        
-        // Start the reader (accepts packets) and printer (print packets) tasks
-        _readerTask = _chatClient.Reader();
+        // Start the Sender, Reader and Printer tasks
+        _chatClient.Sender();
+        _chatClient.Reader();
         _printerTask = _chatClient.Printer();
-        _senderTask = _chatClient.Sender();
     }
     
     public static IChatClient GetClient()

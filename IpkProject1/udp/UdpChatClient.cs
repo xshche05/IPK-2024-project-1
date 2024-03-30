@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using IpkProject1.enums;
@@ -16,7 +15,7 @@ public class UdpChatClient : IChatClient
     public bool _isSenderTerminated { get; set; } = false;
     private IPEndPoint? _endPoint;
     private readonly BlockingCollection<int> _confirmedMessages = new ();
-    private readonly BlockingCollection<UdpPacket> _gotPacketsQueue = new ();
+    public BlockingCollection<UdpPacket> GotPacketsQueue { get; } = new();
     private readonly List<int> _processedMessages = new ();
     private readonly BlockingCollection<UdpPacket> _sendPacketsQueue = new ();
     
@@ -24,7 +23,7 @@ public class UdpChatClient : IChatClient
     {
         // todo: check if ip is valid or hostname
         IPEndPoint endPoint;
-        if (IPAddress.TryParse(host, out IPAddress ip))
+        if (IPAddress.TryParse(host, out var ip))
         {
             endPoint = new IPEndPoint(ip, port);
         }
@@ -48,12 +47,12 @@ public class UdpChatClient : IChatClient
         {
             last.Wait();
         }
+        GotPacketsQueue.CompleteAdding();
     }
 
     public void Close()
     {
         _client.Close();
-        _gotPacketsQueue.CompleteAdding();
     }
     
     private void FsmUpdate(IPacket packet)
@@ -84,6 +83,9 @@ public class UdpChatClient : IChatClient
                     ClientFsm.SetState(FsmStateEnum.End);
                 }
                 break;
+            default:
+                Io.DebugPrintLine("Unknown state...");
+                break;
         }
     }
 
@@ -97,24 +99,44 @@ public class UdpChatClient : IChatClient
                 var data = await _client.ReceiveAsync();
                 byte[] bytes = data.Buffer;
                 MessageTypeEnum type = (MessageTypeEnum)bytes[0];
+                Io.DebugPrintLine("Message received, type: " + type);
                 UInt16 msg_id = BitConverter.ToUInt16(bytes[1..3]);
                 if (type == MessageTypeEnum.Confirm)
                 {
                     _confirmedMessages.Add(msg_id);
                     Io.DebugPrintLine("Confirm received, id: " + msg_id);
                 }
-                else
+                else if (type == MessageTypeEnum.Msg || type == MessageTypeEnum.Err || type == MessageTypeEnum.Reply)
                 {
                     _endPoint = data.RemoteEndPoint;
                     UdpPacket confirm = UdpPacketBuilder.build_confirm(msg_id);
-                    await _client.Client.SendToAsync(confirm.ToBytes(), SocketFlags.None, _endPoint);
+                    _client.Client.SendTo(confirm.ToBytes(), SocketFlags.None, _endPoint);
+                    Io.DebugPrintLine($"Confirm sent for message {type} {msg_id}");
                     UdpPacket packet = new UdpPacket(type, bytes);
                     if (!_processedMessages.Contains(msg_id))
                     {
+                        Io.DebugPrintLine($"Processing message {type} {msg_id}");
                         _processedMessages.Add(msg_id);
-                        _gotPacketsQueue.Add(packet);
+                        GotPacketsQueue.Add(packet);
                         FsmUpdate(packet);
                     }
+                    else
+                    {
+                        Io.DebugPrintLine($"Message already processed... {type} {msg_id}");
+                    }
+                }
+                else
+                {
+                    Io.ErrorPrintLine("ERR: Unknown message type received...");
+                    var err = UdpPacketBuilder.build_error(InputProcessor.DisplayName, "Unknown message type received");
+                    if (_endPoint == null)
+                    {
+                        Io.ErrorPrintLine("ERR: EndPoint is null...");
+                        ClientFsm.SetState(FsmStateEnum.End);
+                        return;
+                    }
+                    _client.Client.SendTo(err.ToBytes(), SocketFlags.None, _endPoint);
+                    ClientFsm.SetState(FsmStateEnum.Error);
                 }
             }
             catch (Exception e)
@@ -129,13 +151,13 @@ public class UdpChatClient : IChatClient
     public async Task Printer()
     {
         Io.DebugPrintLine("Printer started...");
-        while (!_gotPacketsQueue.IsCompleted)
+        while (!GotPacketsQueue.IsCompleted)
         {
             UdpPacket? packet = await Task.Run(() =>
             {
                 try
                 {
-                    return _gotPacketsQueue.Take();
+                    return GotPacketsQueue.Take();
                 }
                 catch (InvalidOperationException)
                 {
@@ -143,6 +165,7 @@ public class UdpChatClient : IChatClient
                 }
             });
             if (packet != null) packet.Print();
+            else break;
         }
         Io.DebugPrintLine("Printer terminated...");
     }
@@ -177,35 +200,33 @@ public class UdpChatClient : IChatClient
         Io.DebugPrintLine("Sender terminated...");
     }
     
-    public async Task AddPacketToSendQueue(IPacket packet)
+    public void AddPacketToSendQueue(IPacket packet)
     {
-        await Task.Run(() =>
+        if (packet.GetMsgType() == MessageTypeEnum.Auth)
         {
-            if (packet.GetMsgType() == MessageTypeEnum.Auth)
-            {
-                IpkProject1.AuthSem.WaitOne();
-                Io.DebugPrintLine("AuthSem acquired in UdpChatClient...");
-            }
-
-            _sendPacketsQueue.Add((UdpPacket)packet);
-            Io.DebugPrintLine("Packet added to send queue...");
-        });
+            IpkProject1.AuthSem.WaitOne();
+            Io.DebugPrintLine("AuthSem acquired in UdpChatClient...");
+        }
+        _sendPacketsQueue.Add((UdpPacket)packet);
+        Io.DebugPrintLine("Packet added to send queue...");
     }
     
     private async Task SendDataToServer(IPacket packet) {
         byte[] data = packet.ToBytes();
-        switch (ClientFsm.State)
+        if (packet.GetMsgType() == MessageTypeEnum.Err)
         {
-            case FsmStateEnum.Start:
-                if (packet.GetMsgType() == MessageTypeEnum.Auth)
-                    ClientFsm.SetState(FsmStateEnum.Auth);
-                break;
+            ClientFsm.SetState(FsmStateEnum.Error);
         }
         int id = ((UdpPacket)packet).GetMsgId();
         for (int i = 0; i < 1 + SysArgParser.GetAppConfig().Retries; i++)
         {
+            if (_endPoint == null)
+            {
+                Io.ErrorPrintLine("ERR: EndPoint is null...");
+                ClientFsm.SetState(FsmStateEnum.End);
+                return;
+            }
             _client.Client.SendTo(data, SocketFlags.None, _endPoint);
-            // wait for confirm message with timeout 250ms
             int controlId = -1;
             Task checkTask = Task.Run(() => { controlId = _confirmedMessages.Take(); });
             Task delayTask = Task.Delay(SysArgParser.GetAppConfig().Timeout);
@@ -217,7 +238,7 @@ public class UdpChatClient : IChatClient
             }
             if (i == SysArgParser.GetAppConfig().Retries)
             {
-                Io.ErrorPrintLine("ERROR: Message with id " + id + " not confirmed, max retries reached");
+                Io.ErrorPrintLine("ERR: Message with id " + id + " not confirmed, max retries reached");
                 if (ClientFsm.State != FsmStateEnum.End)
                 {
                     ClientFsm.SetState(FsmStateEnum.End);

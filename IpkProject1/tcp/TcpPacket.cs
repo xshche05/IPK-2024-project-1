@@ -26,7 +26,7 @@ public class TcpPacketBuilder : IPacketBuilder
     public static TcpPacket build_error(string displayName, string msg)
     {
         var type = MessageTypeEnum.Err;
-        var data = $"ERROR FROM {displayName} IS {msg}{Crlf}";
+        var data = $"ERR FROM {displayName} IS {msg}{Crlf}";
         return new TcpPacket(type, data);
     }
     
@@ -80,6 +80,7 @@ public class TcpPacket : IPacket
 
     public void Print()
     {
+        Io.DebugPrintLine($"TCP packet : {_typeEnum}");
         string displayName;
         string message;
         switch (_typeEnum)
@@ -87,30 +88,69 @@ public class TcpPacket : IPacket
             case MessageTypeEnum.Msg: // print message
                 var msg = _data.Split(" ", 5);
                 displayName = msg[2]; // sender
+                if (!GrammarChecker.CheckDisplayName(displayName, true))
+                {
+                    var grammarErr = TcpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid display name!");
+                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Io.ErrorPrintLine("ERR: Invalid display name!");
+                    break;
+                }
                 message = msg[4][..^2]; // remove \r\n
-                Io.PrintLine($"{displayName}: {message}", ConsoleColor.Green);
+                if (!GrammarChecker.CheckMsg(message, true))
+                {
+                    var grammarErr = TcpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid message!");
+                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    break;
+                }
+                Io.PrintLine($"{displayName}: {message}");
                 break;
             case MessageTypeEnum.Err: // print error
                 var err = _data.Split(" ", 5);
                 displayName = err[2]; // sender
+                if (!GrammarChecker.CheckDisplayName(displayName, true))
+                {
+                    var grammarErr = TcpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid display name!");
+                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Io.ErrorPrintLine("ERR: Invalid display name!");
+                    break;
+                }
                 message = err[4][..^2]; // remove \r\n
+                if (!GrammarChecker.CheckMsg(message, true))
+                {
+                    var grammarErr = TcpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid message!");
+                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    break;
+                }
                 Io.ErrorPrintLine($"ERR FROM {displayName}: {message}");
                 break;
             case MessageTypeEnum.Reply: // print reply
                 var reply = _data.Split(" ", 4);
                 var state = reply[1]; // OK or NOK
-                message = reply[4][..^2]; // remove \r\n
-                Io.ErrorPrintLine(state == "OK" ? "Success" : "Failure" + $": {message}\n");
+                message = reply[3][..^2]; // remove \r\n
+                if (!GrammarChecker.CheckMsg(message, true))
+                {
+                    var grammarErr = TcpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid message!");
+                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    break;
+                }
+                // print hexdump of message
+                Io.DebugPrintLine($"{state}");
+                Io.ErrorPrintLine((state == "OK" ? "Success" : "Failure") + $": {message}");
                 break;
             case MessageTypeEnum.Bye: // do nothing
                 Io.DebugPrintLine("Client disconnected (server send BYE)");
                 break;
             case MessageTypeEnum.None:
-                // todo send error packet
-                Io.ErrorPrintLine($"ERR: {_data}\n");
+                TcpPacket errNone = TcpPacketBuilder.build_error(InputProcessor.DisplayName, "Failed to parse packet!");
+                IpkProject1.GetClient().AddPacketToSendQueue(errNone);
+                Io.ErrorPrintLine($"ERR: {_data}");
                 break;
             default: // unsupported packet
-                // todo send error packet
+                TcpPacket errUnsupported = TcpPacketBuilder.build_error(InputProcessor.DisplayName, "Failed to parse packet!");
+                IpkProject1.GetClient().AddPacketToSendQueue(errUnsupported);
                 Io.ErrorPrintLine("ERR: Got packet unsupported by client!\n");
                 break;
         }

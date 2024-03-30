@@ -11,7 +11,7 @@ public static class Io
         return Console.ReadLine();
     }
 
-    public static void Print(string message, ConsoleColor? color=null)
+    public static void Print(string message)
     {
         // if (color != null)
         //     Console.ForegroundColor = (ConsoleColor)color;
@@ -19,9 +19,9 @@ public static class Io
         Console.ResetColor();
     }
     
-    public static void PrintLine(string message, ConsoleColor? color=null)
+    public static void PrintLine(string message)
     {
-        Print(message + LineTerminator, color);
+        Print(message + LineTerminator);
     }
     
     [Conditional("DEBUG")]

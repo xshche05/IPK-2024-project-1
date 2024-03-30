@@ -29,25 +29,64 @@ public class UdpPacket : IPacket
     
     public void Print()
     {
-        if (_msgType == MessageTypeEnum.Reply)
+        Io.DebugPrintLine("UDP PACKET: " + _msgType);
+        string data;
+        string dname;
+        string message;
+        switch (_msgType)
         {
-            var result = _data[3] != 0;
-            var message = Encoding.ASCII.GetString(_data[6..^1]);
-            Io.ErrorPrintLine((result ? "Success" : "Failure") + ": " + message);
-        }
-        else if (_msgType == MessageTypeEnum.Msg)
-        {
-            var data = Encoding.ASCII.GetString(_data[3..^1]);
-            var dname = data.Split("\0")[0];
-            var message = data.Split("\0")[1];
-            Io.PrintLine(dname + ": " + message, ConsoleColor.Green);
-        }
-        else if (_msgType == MessageTypeEnum.Err)
-        {
-            var data = Encoding.ASCII.GetString(_data[3..^1]);
-            var dname = data.Split("\0")[0];
-            var message = data.Split("\0")[1];
-            Io.ErrorPrintLine($"ERR FROM {dname}: {message}");
+            case MessageTypeEnum.Reply:
+                var result = _data[3] != 0;
+                message = Encoding.ASCII.GetString(_data[6..^1]);
+                if (!GrammarChecker.CheckMsg(message, true))
+                {
+                    var grammarErr = UdpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid message!");
+                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    break;
+                }
+                Io.ErrorPrintLine((result ? "Success" : "Failure") + ": " + message);
+                break;
+            case MessageTypeEnum.Msg:
+                data = Encoding.ASCII.GetString(_data[3..^1]);
+                dname = data.Split("\0")[0];
+                if (!GrammarChecker.CheckDisplayName(dname, true))
+                {
+                    var grammarErr = UdpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid display name!");
+                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Io.ErrorPrintLine("ERR: Invalid display name!");
+                    break;
+                }
+                message = data.Split("\0")[1];
+                if (!GrammarChecker.CheckMsg(message, true))
+                {
+                    var grammarErr = UdpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid message!");
+                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    break;
+                }
+                Io.PrintLine(dname + ": " + message);
+                break;
+            case MessageTypeEnum.Err:
+                data = Encoding.ASCII.GetString(_data[3..^1]);
+                dname = data.Split("\0")[0];
+                if (!GrammarChecker.CheckDisplayName(dname, true))
+                {
+                    var grammarErr = UdpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid display name!");
+                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Io.ErrorPrintLine("ERR: Invalid display name!");
+                    break;
+                }
+                message = data.Split("\0")[1];
+                if (!GrammarChecker.CheckMsg(message, true))
+                {
+                    var grammarErr = UdpPacketBuilder.build_error(InputProcessor.DisplayName, "Invalid message!");
+                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    break;
+                }
+                Io.ErrorPrintLine($"ERR FROM {dname}: {message}");
+                break;
         }
     }
     
@@ -63,7 +102,10 @@ public class UdpPacketBuilder : IPacketBuilder
     
     private static UInt16 GetNextId()
     {
-        return _counter++;
+        // convert to bytes swap and convert back
+        var ret = BitConverter.ToUInt16(BitConverter.GetBytes(_counter).Reverse().ToArray());
+        _counter++;
+        return ret;
     }
     public static UdpPacket build_confirm(UInt16 msgId)
     {

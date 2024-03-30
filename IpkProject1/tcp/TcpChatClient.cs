@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -19,7 +20,7 @@ public class TcpChatClient : IChatClient
     public void Connect(string host, int port)
     {
         IPEndPoint endPoint;
-        if (IPAddress.TryParse(host, out IPAddress ip))
+        if (IPAddress.TryParse(host, out var ip))
         {
             endPoint = new IPEndPoint(ip, port);
         }
@@ -33,85 +34,105 @@ public class TcpChatClient : IChatClient
     }
     public void Disconnect()
     {
+        _sendPacketsQueue.CompleteAdding();
         Io.DebugPrintLine("TCP client is shutting down...");
-        _client.Client.Shutdown(SocketShutdown.Both);
-        Io.DebugPrintLine("TCP client is closing...");
+        _gotPacketsQueue.CompleteAdding();
     }
     public void Close()
     {
-        _client.Close();
+        IpkProject1.GetLastSendTask()?.Wait();
+        try
+        {
+            _client.Client.Shutdown(SocketShutdown.Both);
+        }
+        finally
+        {
+            _client.Client.Close();
+        }
+        Io.DebugPrintLine("TCP client is closing...");
+        _client.Client.Close();
     }
     private async Task SendDataToServer(IPacket packet)
     {
         byte[] data = packet.ToBytes();
-        switch(ClientFsm.State)
+        if (packet.GetMsgType() == MessageTypeEnum.Err)
         {
-            case FsmStateEnum.Auth:
-                if (packet.GetMsgType() == MessageTypeEnum.Auth)
-                    ClientFsm.SetState(FsmStateEnum.Auth);
-                break;
+            ClientFsm.SetState(FsmStateEnum.Error);
         }
         await _client.Client.SendAsync(data, SocketFlags.None);
     }
+    
+    private void FsmUpdate(IPacket packet)
+    {
+        switch (ClientFsm.State)
+        {
+            case FsmStateEnum.Auth:
+                if (packet.GetMsgType() == MessageTypeEnum.Err)
+                {
+                    ClientFsm.SetState(FsmStateEnum.End);
+                }
+                else if (packet.GetMsgType() == MessageTypeEnum.Reply && Encoding.ASCII.GetString(packet.ToBytes())
+                             .ToUpper()
+                             .StartsWith("REPLY OK"))
+                {
+                    ClientFsm.SetState(FsmStateEnum.Open);
+                }
+                else if (packet.GetMsgType() == MessageTypeEnum.Reply && Encoding.ASCII.GetString(packet.ToBytes())
+                             .ToUpper()
+                             .StartsWith("REPLY NOK"))
+                {
+                    ClientFsm.SetState(FsmStateEnum.Auth);
+                }
+                break;
+            case FsmStateEnum.Open:
+                if (packet.GetMsgType() == MessageTypeEnum.Err)
+                {
+                    ClientFsm.SetState(FsmStateEnum.End);
+                }
+                else if (packet.GetMsgType() == MessageTypeEnum.Bye)
+                {
+                    ClientFsm.SetState(FsmStateEnum.End);
+                }
+                break;
+            default:
+                Io.DebugPrintLine("Unknown state...");
+                break;
+        }
+    }
+    
     public async Task Reader()
     {
         // read separate messages from server, every message is separated by CRLF
         string message = ""; // message buffer
-        byte[] buffer = new byte[1]; // read byte by byte
+        byte[] buffer = new byte[2048]; // read byte by byte
         Io.DebugPrintLine("Reader started...");
-        while (true)
+        while (!_gotPacketsQueue.IsCompleted)
         {
-            try
+            int read = await _client.Client.ReceiveAsync(buffer);
+            message += Encoding.ASCII.GetString(buffer, 0, read);
+            if (message.Contains("\r\n"))
             {
-                while (await _client.Client.ReceiveAsync(buffer) != 0)
+                string[] fullMessages;
+                string[] messages = message.Split("\r\n", StringSplitOptions.RemoveEmptyEntries);
+                if (message.EndsWith("\r\n"))
                 {
-                    message += Encoding.UTF8.GetString(buffer); // read stream to message
-                    if (message.EndsWith("\r\n")) // check if full message is received
-                    {
-                        TcpPacket p = TcpPacketParser.Parse(message.Trim());
-                        _gotPacketsQueue.Add(p);
-                        // todo make separate method for below
-                        switch (ClientFsm.State)
-                        {
-                            case FsmStateEnum.Auth:
-                                if (p.GetMsgType() == MessageTypeEnum.Err)
-                                {
-                                    ClientFsm.SetState(FsmStateEnum.End);
-                                    TcpPacket bye = TcpPacketBuilder.build_bye();
-                                    await AddPacketToSendQueue(bye);
-                                } else if (p.GetMsgType() == MessageTypeEnum.Reply && p.GetMsgData().ToUpper().StartsWith("REPLY OK"))
-                                {
-                                    ClientFsm.SetState(FsmStateEnum.Open);
-                                } else if (p.GetMsgType() == MessageTypeEnum.Reply && p.GetMsgData().ToUpper().Contains("REPLY NOK"))
-                                {
-                                    ClientFsm.SetState(FsmStateEnum.Auth);
-                                }
-                                break;
-                            case FsmStateEnum.Open:
-                                if (p.GetMsgType() == MessageTypeEnum.Err)
-                                {
-                                    ClientFsm.SetState(FsmStateEnum.End);
-                                }
-                                else if (p.GetMsgType() == MessageTypeEnum.Bye)
-                                {
-                                    ClientFsm.SetState(FsmStateEnum.End);
-                                }
-                                break;
-                        }
-                        message = ""; // clear message
-                    }
+                    message = ""; // clear buffer
+                    fullMessages = messages;
+                }
+                else
+                {
+                    message = messages[^1]; // save unfinished message
+                    fullMessages = messages[..^1];
+                }
+                foreach (var msg in fullMessages)
+                {
+                    TcpPacket packet = TcpPacketParser.Parse(msg+"\r\n");
+                    _gotPacketsQueue.Add(packet);
+                    FsmUpdate(packet);
+                    Io.DebugPrintLine($"Packet added to got queue {packet.GetMsgType()}");
                 }
             }
-            catch (SocketException) // client is closed
-            {
-                break;
-            }
-            catch (ObjectDisposedException) // client is closed
-            {
-                break;
-            }
         }
-        _gotPacketsQueue.CompleteAdding(); // signal that no more packets will be added
         Io.DebugPrintLine("Reader terminated...");
     }
     public async Task Printer()
@@ -131,6 +152,7 @@ public class TcpChatClient : IChatClient
                 }
             });
             if (packet != null) packet.Print();
+            else break;
         }
 
         Io.DebugPrintLine("Printer terminated...");
@@ -154,7 +176,7 @@ public class TcpChatClient : IChatClient
                 }
             });
             await getTask;
-            Io.DebugPrintLine($"Got packet from queue {p?.GetMsgType()}");
+            Io.DebugPrintLine($"Got packet from queue: {p?.GetMsgType()}");
             if (p != null)
             {
                 var last = SendDataToServer(p);
@@ -164,17 +186,14 @@ public class TcpChatClient : IChatClient
             }
         }
     }
-    public async Task AddPacketToSendQueue(IPacket packet)
+    public void AddPacketToSendQueue(IPacket packet)
     {
-        await Task.Run(() =>
+        if (packet.GetMsgType() == MessageTypeEnum.Auth)
         {
-            if (packet.GetMsgType() == MessageTypeEnum.Auth)
-            {
-                IpkProject1.AuthSem.WaitOne();
-                Io.DebugPrintLine("AuthSem acquired in TcpChatClient...");
-            }
-            _sendPacketsQueue.Add((TcpPacket) packet);
-            Io.DebugPrintLine("Packet added to send queue...");
-        });
+            IpkProject1.AuthSem.WaitOne();
+            Io.DebugPrintLine("AuthSem acquired in TcpChatClient...");
+        }
+        _sendPacketsQueue.Add((TcpPacket) packet);
+        Io.DebugPrintLine("Packet added to send queue...");
     }
 }
