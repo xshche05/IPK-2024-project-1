@@ -28,7 +28,7 @@ public static class Io
     public static void DebugPrint(string message)
     {
         Console.ForegroundColor = ConsoleColor.Magenta;
-        Console.Error.Write(message);
+        // Console.Error.Write(message);
         Console.ResetColor();
     }
     

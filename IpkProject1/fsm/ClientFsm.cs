@@ -100,11 +100,11 @@ public static class ClientFsm
                 {
                     SetState(FsmStateEnum.End);
                 }
-                else if (p.Type == MessageTypeEnum.Reply && p.ToBytes()[3] == 1)
+                else if (p.Type == MessageTypeEnum.Reply && p.ReplyState() == true)
                 {
                     SetState(FsmStateEnum.Open);
                 }
-                else if (p.Type == MessageTypeEnum.Reply && p.ToBytes()[3] == 0)
+                else if (p.Type == MessageTypeEnum.Reply && p.ReplyState() == false)
                 {
                     SetState(FsmStateEnum.Auth);
                 }

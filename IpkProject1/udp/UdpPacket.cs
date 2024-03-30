@@ -106,6 +106,7 @@ public class UdpPacketBuilder : IPacketBuilder
 {
     private static UInt16 _counter;
     
+    // Method to generate unique message ID
     private static UInt16 GetNextId()
     {
         // convert to bytes swap and convert back
@@ -117,13 +118,13 @@ public class UdpPacketBuilder : IPacketBuilder
     {
         var type = MessageTypeEnum.Confirm;
         var msgTypeByte = Convert.ToByte((int)type);
-        var msgIdBytes = BitConverter.GetBytes(msgId);
+        var msgIdBytes = BitConverter.GetBytes(msgId); // convert to bytes refId
         var data = new byte[1 + 2];
         data[0] = msgTypeByte;
         Array.Copy(msgIdBytes, 0, data, 1, 2);
         return new UdpPacket(type, data);
     }
-    public UdpPacket build_auth(string login, string dname, string secret)
+    public IPacket build_auth(string login, string dname, string secret)
     {
         var type = MessageTypeEnum.Auth;
         var msgTypeByte = Convert.ToByte((int)type);
@@ -142,8 +143,7 @@ public class UdpPacketBuilder : IPacketBuilder
         data[3 + usernameBytes.Length + 1 + dnameBytes.Length + 1 + secretBytes.Length] = 0;
         return new UdpPacket(type, data);
 }
-    
-    public UdpPacket build_msg(string dname, string msg)
+    public IPacket build_msg(string dname, string msg)
     {
         var type = MessageTypeEnum.Msg;
         var msgTypeByte = Convert.ToByte((int)type);
@@ -159,8 +159,7 @@ public class UdpPacketBuilder : IPacketBuilder
         data[3 + dnameBytes.Length + 1 + msgBytes.Length] = 0;
         return new UdpPacket(type, data);
     }
-    
-    public UdpPacket build_error(string dname, string msg)
+    public IPacket build_error(string dname, string msg)
     {
         var type = MessageTypeEnum.Err;
         var msgTypeByte = Convert.ToByte((int)type);
@@ -176,8 +175,7 @@ public class UdpPacketBuilder : IPacketBuilder
         data[3 + dnameBytes.Length + 1 + msgBytes.Length] = 0;
         return new UdpPacket(type, data);
     }
-    
-    public UdpPacket build_join(string channel, string dname)
+    public IPacket build_join(string channel, string dname)
     {
         var type = MessageTypeEnum.Join;
         var msgTypeByte = Convert.ToByte((int)type);
@@ -193,8 +191,7 @@ public class UdpPacketBuilder : IPacketBuilder
         data[3 + channelBytes.Length + 1 + dnameBytes.Length] = 0;
         return new UdpPacket(type, data);
     }
-    
-    public UdpPacket build_bye()
+    public IPacket build_bye()
     {
         var type = MessageTypeEnum.Bye;
         var msgTypeByte = Convert.ToByte((int)type);

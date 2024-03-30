@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text;
 using IpkProject1.enums;
 using IpkProject1.interfaces;
@@ -17,7 +16,7 @@ public class TcpPacket : IPacket
         _type = type;
         _data = data;
     }
-
+    
     public void Print()
     {
         Io.DebugPrintLine($"TCP packet : {_type}");
@@ -85,12 +84,12 @@ public class TcpPacket : IPacket
                 Io.DebugPrintLine("Client disconnected (server send BYE)");
                 break;
             case MessageTypeEnum.None:
-                TcpPacket errNone = builder.build_error(InputProcessor.DisplayName, "Failed to parse packet!");
+                TcpPacket errNone = (TcpPacket)builder.build_error(InputProcessor.DisplayName, "Failed to parse packet!");
                 IpkProject1.GetClient().AddPacketToSendQueue(errNone);
                 Io.ErrorPrintLine($"ERR: {_data}");
                 break;
             default: // unsupported packet
-                TcpPacket errUnsupported = builder.build_error(InputProcessor.DisplayName, "Failed to parse packet!");
+                TcpPacket errUnsupported = (TcpPacket)builder.build_error(InputProcessor.DisplayName, "Failed to parse packet!");
                 IpkProject1.GetClient().AddPacketToSendQueue(errUnsupported);
                 Io.ErrorPrintLine("ERR: Got packet unsupported by client!\n");
                 break;
@@ -99,8 +98,9 @@ public class TcpPacket : IPacket
     
     public byte[] ToBytes()
     {
-        return Encoding.UTF8.GetBytes(_data);
+        return Encoding.ASCII.GetBytes(_data);
     }
+    
     public bool? ReplyState()
     {
         if (_type == MessageTypeEnum.Reply)
@@ -114,35 +114,35 @@ public class TcpPacket : IPacket
 public class TcpPacketBuilder : IPacketBuilder
 {
     private const string Crlf = "\r\n";
-    public TcpPacket build_auth(string login, string displayName, string secret)
+    public IPacket build_auth(string login, string displayName, string secret)
     {
         var type = MessageTypeEnum.Auth;
         var data = $"AUTH {login} AS {displayName} USING {secret}{Crlf}";
         return new TcpPacket(type, data);
     }
     
-    public TcpPacket build_msg(string displayName, string msg)
+    public IPacket build_msg(string displayName, string msg)
     {
         var type = MessageTypeEnum.Msg;
         var data = $"MSG FROM {displayName} IS {msg}{Crlf}";
         return new TcpPacket(type, data);
     }
     
-    public TcpPacket build_error(string displayName, string msg)
+    public IPacket build_error(string displayName, string msg)
     {
         var type = MessageTypeEnum.Err;
         var data = $"ERR FROM {displayName} IS {msg}{Crlf}";
         return new TcpPacket(type, data);
     }
     
-    public TcpPacket build_join(string channel, string displayName)
+    public IPacket build_join(string channel, string displayName)
     {
         var type = MessageTypeEnum.Join;
         var data = $"JOIN {channel} AS {displayName}{Crlf}";
         return new TcpPacket(type, data);
     }
     
-    public TcpPacket build_bye()
+    public IPacket build_bye()
     {
         var type = MessageTypeEnum.Bye;
         var data = $"BYE{Crlf}";
@@ -150,10 +150,12 @@ public class TcpPacketBuilder : IPacketBuilder
     }
 }
 
+// Parser for TCP packets
 public static class TcpPacketParser
 {
     public static TcpPacket Parse(string data)
     {
+        // Convert the data to upper case and split it by spaces, to ignore case
         var parts = data.ToUpper().Split(" ");
         return parts switch
         {
