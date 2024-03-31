@@ -4,7 +4,7 @@
 all: publish
 
 publish:
-	dotnet publish IpkProject1.csproj --ucr --sc -c Release -o . -p:PublishSingleFile=true
+	dotnet publish IpkProject1.csproj --ucr -c Release -o . -p:PublishSingleFile=true
 
 .PHONY: clean
 clean:
