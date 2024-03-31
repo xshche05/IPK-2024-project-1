@@ -28,20 +28,23 @@ public class UdpChatClient : IChatClient
     
     public void Connect(string host, int port)
     {
-        IPEndPoint endPoint;
         if (IPAddress.TryParse(host, out var ip))
         {
             // id host is an IP address
-            endPoint = new IPEndPoint(ip, port);
+            _serverEndPoint = new IPEndPoint(ip, port);
         }
         else
         {
             // if host is a domain name
-            IPHostEntry hostEntry = Dns.GetHostEntry(host);
-            endPoint = new IPEndPoint(hostEntry.AddressList[0], port);
+            IPAddress[] hostAddresses = Dns.GetHostAddresses(host);
+            IPAddress? IPv4 = Array.Find(hostAddresses, ipTest => ipTest.AddressFamily == AddressFamily.InterNetwork);
+            if (IPv4 == null)
+            {
+                Io.ErrorPrintLine("ERR: Invalid host address, cant find an IPv4 according to hostname! Exiting.");
+                Environment.Exit(1);
+            }
+            _serverEndPoint = new IPEndPoint(IPv4, port);
         }
-        // Init start server end point
-        _serverEndPoint = endPoint;
         // Bind client to any available port
         _client.Client.Bind(new IPEndPoint(IPAddress.Any, 0));
         // Set sender task flag to false
@@ -78,7 +81,14 @@ public class UdpChatClient : IChatClient
             try
             {
                 var data = await _client.ReceiveAsync(); // Read one packet
-                byte[] bytes = data.Buffer; 
+                byte[] bytes = data.Buffer;
+                if (bytes.Length < 3)
+                {
+                    IPacket err = new UdpPacketBuilder().build_error(InputProcessor.DisplayName, "Too small paket");
+                    AddPacketToSendQueue(err);
+                    Io.ErrorPrintLine("ERR: got too small packet");
+                    continue;
+                }
                 MessageTypeEnum type = (MessageTypeEnum)bytes[0]; // Get message type
                 Io.DebugPrintLine("Message received, type: " + type);
                 UInt16 msgId = BitConverter.ToUInt16(bytes[1..3]); // Get got message ref id
@@ -227,8 +237,8 @@ public class UdpChatClient : IChatClient
             }
             _client.Client.SendTo(data, SocketFlags.None, _serverEndPoint);
             int controlId = -1;
-            Task checkTask = Task.Run(() => { controlId = _confirmedMessages.Take(); });
-            Task delayTask = Task.Delay(SysArgParser.Config.Timeout);
+            Task checkTask = Task.Run(() => { controlId = _confirmedMessages.Take(); });  // Confirmation waiter
+            Task delayTask = Task.Delay(SysArgParser.Config.Timeout); // Timeout timer
             Task firstCompleted = await Task.WhenAny(checkTask, delayTask); // Wait for confirm message or timeout
             if (firstCompleted == checkTask && checkTask.IsCompletedSuccessfully && controlId == id)
             {
