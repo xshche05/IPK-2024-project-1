@@ -1,6 +1,6 @@
-using IpkProject1.enums;
+using IpkProject1.Enums;
 
-namespace IpkProject1.interfaces;
+namespace IpkProject1.Interfaces;
 
 public interface IPacket
 {

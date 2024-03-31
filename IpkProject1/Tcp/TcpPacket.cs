@@ -1,9 +1,9 @@
 using System.Text;
-using IpkProject1.enums;
-using IpkProject1.interfaces;
-using IpkProject1.user;
+using IpkProject1.Enums;
+using IpkProject1.Interfaces;
+using IpkProject1.User;
 
-namespace IpkProject1.tcp;
+namespace IpkProject1.Tcp;
 
 public class TcpPacket : IPacket
 {
@@ -84,10 +84,6 @@ public class TcpPacket : IPacket
                 Io.DebugPrintLine("Client disconnected (server send BYE)");
                 break;
             case MessageTypeEnum.None:
-                TcpPacket errNone = (TcpPacket)builder.build_error(InputProcessor.DisplayName, "Failed to parse packet!");
-                IpkProject1.GetClient().AddPacketToSendQueue(errNone);
-                Io.ErrorPrintLine($"ERR: {_data}");
-                break;
             default: // unsupported packet
                 TcpPacket errUnsupported = (TcpPacket)builder.build_error(InputProcessor.DisplayName, "Failed to parse packet!");
                 IpkProject1.GetClient().AddPacketToSendQueue(errUnsupported);

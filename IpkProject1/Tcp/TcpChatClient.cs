@@ -2,12 +2,12 @@ using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using IpkProject1.enums;
-using IpkProject1.fsm;
-using IpkProject1.interfaces;
-using IpkProject1.user;
+using IpkProject1.Enums;
+using IpkProject1.Fsm;
+using IpkProject1.Interfaces;
+using IpkProject1.User;
 
-namespace IpkProject1.tcp;
+namespace IpkProject1.Tcp;
 
 public class TcpChatClient : IChatClient
 {
@@ -51,7 +51,7 @@ public class TcpChatClient : IChatClient
         IpkProject1.GetLastSendTask()?.Wait();
         try
         {
-            // shutdown the client
+            // shutdown the client, gracefully close the connection
             _client.Client.Shutdown(SocketShutdown.Both);
         }
         finally

@@ -1,18 +1,10 @@
 # Purpose: Makefile for the project in C# language.
 
 
-all: publish_linux
+all: publish
 
-build:
-	dotnet build -c Debug -o ./out
-
-publish_linux:
-	dotnet publish -r linux-x64 -c Release -o ./out /p:PublishSingleFile=true /p:PublishTrimmed=true
-	mv ./out/IpkProject1 ./ipk24chat-client
-
-publish_windows:
-	dotnet publish -r win-x64 -c Release -o ./out /p:PublishSingleFile=true /p:PublishTrimmed=true
-	mv ./out/IpkProject1.exe ./ipk24chat-client.exe
+publish:
+	dotnet publish IpkProject1.csproj --ucr --sc -c Release -o .
 
 .PHONY: clean
 clean:

@@ -1,12 +1,11 @@
-using System.Text;
-using IpkProject1.enums;
-using IpkProject1.fsm;
-using IpkProject1.interfaces;
-using IpkProject1.sysarg;
-using IpkProject1.tcp;
-using IpkProject1.udp;
+using IpkProject1.Enums;
+using IpkProject1.Fsm;
+using IpkProject1.Interfaces;
+using IpkProject1.SysArg;
+using IpkProject1.Tcp;
+using IpkProject1.Udp;
 
-namespace IpkProject1.user;
+namespace IpkProject1.User;
 
 public static class InputProcessor
 {

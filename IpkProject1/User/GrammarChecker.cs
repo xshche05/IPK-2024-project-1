@@ -1,7 +1,6 @@
-using System.Diagnostics;
 using System.Text.RegularExpressions;
 
-namespace IpkProject1.user;
+namespace IpkProject1.User;
 
 public static class GrammarChecker
 {

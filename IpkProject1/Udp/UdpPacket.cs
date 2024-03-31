@@ -1,9 +1,9 @@
 using System.Text;
-using IpkProject1.enums;
-using IpkProject1.interfaces;
-using IpkProject1.user;
+using IpkProject1.Enums;
+using IpkProject1.Interfaces;
+using IpkProject1.User;
 
-namespace IpkProject1.udp;
+namespace IpkProject1.Udp;
 
 public class UdpPacket : IPacket
 {
@@ -18,6 +18,7 @@ public class UdpPacket : IPacket
         _data = data;
         _msgId = BitConverter.ToUInt16(data[1..3]);
     }
+    
     public byte[] ToBytes()
     {
         return _data;
@@ -88,6 +89,14 @@ public class UdpPacket : IPacket
                     break;
                 }
                 Io.ErrorPrintLine($"ERR FROM {dname}: {message}");
+                break;
+            case MessageTypeEnum.Bye:
+                break; // do nothing
+            case MessageTypeEnum.None:
+            default:
+                UdpPacket errPacket = (UdpPacket)builder.build_error(InputProcessor.DisplayName, "Invalid packet type!");
+                IpkProject1.GetClient().AddPacketToSendQueue(errPacket);
+                Io.ErrorPrintLine("ERR: Invalid packet type!");
                 break;
         }
     }
@@ -200,5 +209,44 @@ public class UdpPacketBuilder : IPacketBuilder
         data[0] = msgTypeByte;
         Array.Copy(msgIdBytes, 0, data, 1, 2);
         return new UdpPacket(type, data);
+    }
+}
+
+
+public static class UdpPacketParser
+{
+    public static UdpPacket Parse(byte[] data)
+    {
+        var msgType = (MessageTypeEnum)data[0];
+        // Id is not necessary for parsing (data[1..3])
+        switch (msgType)
+        {
+            case MessageTypeEnum.Reply:
+                if (data.Length < 8) return new UdpPacket(MessageTypeEnum.None, data);
+                var replyResult = data[3];
+                if (replyResult != 0 && replyResult != 1) return new UdpPacket(MessageTypeEnum.None, data);
+                var replyRestData = data[6..];
+                if (replyRestData[^1] != 0) return new UdpPacket(MessageTypeEnum.None, data);
+                return new UdpPacket(MessageTypeEnum.Reply, data);
+            case MessageTypeEnum.Msg:
+                if (data.Length < 7) return new UdpPacket(MessageTypeEnum.None, data);
+                var msgDnameMsg = data[3..];
+                if (msgDnameMsg[^1] != 0) return new UdpPacket(MessageTypeEnum.None, data);
+                var msgDnameMsgParts = Encoding.ASCII.GetString(msgDnameMsg[..^1]).Split("\0");
+                if (msgDnameMsgParts.Length != 2) return new UdpPacket(MessageTypeEnum.None, data);
+                return new UdpPacket(MessageTypeEnum.Msg, data);
+            case MessageTypeEnum.Err:
+                if (data.Length < 7) return new UdpPacket(MessageTypeEnum.None, data);
+                var errDnameMsg = data[3..];
+                if (errDnameMsg[^1] != 0) return new UdpPacket(MessageTypeEnum.None, data);
+                var errDnameMsgParts = Encoding.ASCII.GetString(errDnameMsg[..^1]).Split("\0");
+                if (errDnameMsgParts.Length != 2) return new UdpPacket(MessageTypeEnum.None, data);
+                return new UdpPacket(MessageTypeEnum.Err, data);
+            case MessageTypeEnum.Bye:
+                if (data.Length != 3) return new UdpPacket(MessageTypeEnum.None, data);
+                return new UdpPacket(MessageTypeEnum.Bye, data);
+            default:
+                return new UdpPacket(MessageTypeEnum.None, data);
+        }
     }
 }

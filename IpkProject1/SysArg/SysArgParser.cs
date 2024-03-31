@@ -1,7 +1,7 @@
-using IpkProject1.enums;
-using IpkProject1.user;
+using IpkProject1.Enums;
+using IpkProject1.User;
 
-namespace IpkProject1.sysarg;
+namespace IpkProject1.SysArg;
 
 public static class SysArgParser
 {

@@ -1,6 +1,6 @@
 using System.Diagnostics;
 
-namespace IpkProject1.user;
+namespace IpkProject1.User;
 
 public static class Io
 {

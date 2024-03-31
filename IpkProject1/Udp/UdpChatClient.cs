@@ -1,13 +1,13 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Sockets;
-using IpkProject1.enums;
-using IpkProject1.fsm;
-using IpkProject1.interfaces;
-using IpkProject1.sysarg;
-using IpkProject1.user;
+using IpkProject1.Enums;
+using IpkProject1.Fsm;
+using IpkProject1.Interfaces;
+using IpkProject1.SysArg;
+using IpkProject1.User;
 
-namespace IpkProject1.udp;
+namespace IpkProject1.Udp;
 
 public class UdpChatClient : IChatClient
 {
@@ -97,7 +97,7 @@ public class UdpChatClient : IChatClient
                     _client.Client.SendTo(confirm.ToBytes(), SocketFlags.None, _serverEndPoint);
                     Io.DebugPrintLine($"Confirm sent for message {type} {msgId}");
                     // Convert data to UdpPacket
-                    UdpPacket packet = new UdpPacket(type, bytes);
+                    UdpPacket packet = UdpPacketParser.Parse(bytes);
                     if (!_processedMessages.Contains(msgId)) // Check if message was already processed
                     {
                         Io.DebugPrintLine($"Processing message {type} {msgId}");

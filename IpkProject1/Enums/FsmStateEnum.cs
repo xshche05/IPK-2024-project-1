@@ -1,4 +1,4 @@
-namespace IpkProject1.enums;
+namespace IpkProject1.Enums;
 
 // Enum for all possible states of the client's FSM according to the assignment
 public enum FsmStateEnum

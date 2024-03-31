@@ -1,6 +1,6 @@
-using IpkProject1.enums;
+using IpkProject1.Enums;
 
-namespace IpkProject1.sysarg;
+namespace IpkProject1.SysArg;
 
 public record AppConfig()
 {

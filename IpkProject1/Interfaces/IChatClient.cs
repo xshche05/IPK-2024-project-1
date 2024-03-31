@@ -1,4 +1,4 @@
-namespace IpkProject1.interfaces;
+namespace IpkProject1.Interfaces;
 
 public interface IChatClient
 {
