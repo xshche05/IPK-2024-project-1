@@ -30,7 +30,15 @@ public class TcpChatClient : IChatClient
             Environment.Exit(1);
         }
         var endPoint = new IPEndPoint(IPv4, port);
-        _client.Connect(endPoint);
+        try
+        {
+            _client.Connect(endPoint);
+        }
+        catch (Exception e)
+        {
+            Io.ErrorPrintLine(e.Message, ColorScheme.Error);
+            Environment.Exit(1);
+        }
         Io.DebugPrintLine("Connected to server...");
     }
     
