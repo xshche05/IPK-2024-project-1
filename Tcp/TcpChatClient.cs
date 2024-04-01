@@ -21,24 +21,15 @@ public class TcpChatClient : IChatClient
     
     public void Connect(string host, int port)
     {
-        IPEndPoint endPoint;
-        if (IPAddress.TryParse(host, out var ip))
+        // if host is a domain name
+        IPAddress[] hostAddresses = Dns.GetHostAddresses(host);
+        IPAddress? IPv4 = Array.Find(hostAddresses, ipTest => ipTest.AddressFamily == AddressFamily.InterNetwork);
+        if (IPv4 == null)
         {
-            // if host is an IP address
-            endPoint = new IPEndPoint(ip, port);
+            Io.ErrorPrintLine("ERR: Invalid host address, cant find an IPv4 according to hostname! Exiting.", ColorScheme.Error);
+            Environment.Exit(1);
         }
-        else
-        {
-            // if host is a domain name
-            IPAddress[] hostAddresses = Dns.GetHostAddresses(host);
-            IPAddress? IPv4 = Array.Find(hostAddresses, ipTest => ipTest.AddressFamily == AddressFamily.InterNetwork);
-            if (IPv4 == null)
-            {
-                Io.ErrorPrintLine("ERR: Invalid host address, cant find an IPv4 according to hostname! Exiting.", ColorScheme.Error);
-                Environment.Exit(1);
-            }
-            endPoint = new IPEndPoint(IPv4, port);
-        }
+        var endPoint = new IPEndPoint(IPv4, port);
         _client.Connect(endPoint);
         Io.DebugPrintLine("Connected to server...");
     }
