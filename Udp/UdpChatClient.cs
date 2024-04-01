@@ -142,6 +142,7 @@ public class UdpChatClient : IChatClient
                     if (_serverEndPoint == null)
                     {
                         Io.ErrorPrintLine("ERR: EndPoint is null...", ColorScheme.Error);
+                        Program.ExitCode = 1;
                         ClientFsm.SetState(FsmStateEnum.End);
                         return;
                     }

@@ -104,6 +104,7 @@ public static class ClientFsm
             case FsmStateEnum.Auth:
                 if (p.Type == MessageTypeEnum.Err)
                 {
+                    Program.ExitCode = 1;
                     SetState(FsmStateEnum.End);
                 }
                 else if (p.Type == MessageTypeEnum.Reply && p.ReplyState() == true)
@@ -118,6 +119,7 @@ public static class ClientFsm
             case FsmStateEnum.Open:
                 if (p.Type == MessageTypeEnum.Err)
                 {
+                    Program.ExitCode = 1;
                     SetState(FsmStateEnum.End);
                 }
                 else if (p.Type == MessageTypeEnum.Bye)
@@ -135,14 +137,17 @@ public static class ClientFsm
                 }
                 break;
             default:
-                Io.DebugPrintLine("Unknown state...");
+                if (p.Type == MessageTypeEnum.Bye)
+                {
+                    NeedByeSendFlag = false;
+                    SetState(FsmStateEnum.End);
+                }
+                else if (p.Type == MessageTypeEnum.Err)
+                {
+                    Program.ExitCode = 1;
+                    SetState(FsmStateEnum.End);
+                }
                 break;
-        }
-        // Additional check for the Bye packet, if got in any state
-        if (p.Type == MessageTypeEnum.Bye)
-        {
-            NeedByeSendFlag = false;
-            SetState(FsmStateEnum.End);
         }
     }
 }   
