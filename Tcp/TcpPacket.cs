@@ -79,7 +79,7 @@ public class TcpPacket : IPacket
                 }
                 // print hexdump of message
                 Io.DebugPrintLine($"{state}");
-                Io.ErrorPrintLine((state == "OK" ? "Success" : "Failure") + $": {message}",
+                Io.ErrorPrintLine((state.ToUpper() == "OK" ? "Success" : "Failure") + $": {message}",
                     state == "OK" ? ColorScheme.Info : ColorScheme.Error);
                 break;
             case MessageTypeEnum.Bye: // do nothing
