@@ -161,7 +161,7 @@ public static class TcpPacketParser
             ["REPLY", "NOK", "IS", ..] => new TcpPacket(MessageTypeEnum.Reply, data),
             ["MSG", "FROM", _, "IS", ..] => new TcpPacket(MessageTypeEnum.Msg, data),
             ["ERR", "FROM", _, "IS", ..] => new TcpPacket(MessageTypeEnum.Err, data),
-            ["BYE"] => new TcpPacket(MessageTypeEnum.Bye, data),
+            ["BYE\r\n"] => new TcpPacket(MessageTypeEnum.Bye, data),
             _ => new TcpPacket(MessageTypeEnum.None, "Failed to parse packet!")
         };
     }
