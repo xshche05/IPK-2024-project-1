@@ -14,7 +14,7 @@ public static class InputProcessor
     private static IPacket? ProcessInput(string input)
     {
         IPacket? packet = null;
-        var msgParts = input.Split(" ");
+        var msgParts = input.Split(" ", StringSplitOptions.RemoveEmptyEntries);
         IPacketBuilder? builder = SysArgParser.Config.Protocol switch
         {
             ProtocolEnum.Udp => new UdpPacketBuilder(),
@@ -59,7 +59,7 @@ public static class InputProcessor
                 Io.PrintLine("Commands:\n" +
                               "/auth <username> <secret> <display_name> - authentication command\n" +
                               "/join <channel>                          - join (create if not exists) to specified channel\n" +
-                              "/rename <display_name>                   - changing the display name\n" +
+                              "/rename <new_display_name>                   - changing the display name\n" +
                               "/currentname                             - prints your current display name\n" +
                               "\nOther inputs not started from slash is treated as messages\n", ColorScheme.Info);
                 break;
