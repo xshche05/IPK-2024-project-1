@@ -20,6 +20,11 @@ Project from IPK 23/24 course in FIT VUT, simple console chat client app.
         - [UDP testing](#udp-testing)
         - [General testing for both protocols](#general-testing-for-both-protocols)
         - [Other tests](#other-tests)
+    - [Troubleshooting & FAQs](#troubleshooting--faqs)
+        - [No reply to sent authentication](#no-reply-to-sent-authentication)
+        - [Server error reaction](#server-error-reaction)
+        - [Error types](#error-types)
+    - [Bibliography](#bibliography)
 ## Introducing
 This document describes the chat client that uses `IPK24-CHAT` protocol for communication. Application support communication with server via TCP and UDP. Chat client is using console as an user interface, all commands and message inputs are put to `stdin`, all application outputs are printed to `stdin` in case of messages and success replies from server, outputs such as user warnings, app errors, server errors and failure replies are printed to `stderr`.
 
@@ -91,7 +96,7 @@ In case of not getting confirmation and max retries reaching, client writes `ERR
 
 ## Testing & Validation
 ### Tools
-In this topic would be described application testing and validation. During the testing process was used such tools as `Wireshark` application to handle and analyze transmitted packets, additional Lua script to detect `IPK24-CHAT` packets, `netcat` application to perform simple server <-> client communication, reference IPK server `anton5.fit.vutbr.cz:4567`.
+In this topic would be described application testing and validation. During the testing process was used such tools as `Wireshark` application to handle and analyze transmitted packets, additional Lua script to detect `IPK24-CHAT` packets, `netcat` application to perform simple server <-> client communication, reference IPK server `anton5.fit.vutbr.cz:4567`. All discovered errors during validation were fixed according to the test data input and reference output.
 ### Input testing
 Firsts of all was tested user input validation, such as commands and messages. Following test cases was tested:
 - User command syntax validation
@@ -123,3 +128,27 @@ Both protocols testing contains following cases:
 - Invalid packets
 - Invalid content of particular packet item, such as display name, message content
 ### Other tests
+Some other following test cases were also tested:
+- Application termination by sending `EOF`
+- Application termination by sending `SIGINT` or pressing `Ctrl+C`
+- Application reaction to not used mandatory options such as `-t` and `-s`
+
+## Troubleshooting & FAQs
+### No reply to sent authentication
+Some times could happened that reply packet loosed or server does not send a reply packet at all, in this case application could be terminated by simply using `Ctrl+C`. Waiting for a reply do not lock the main thread and gracefully termination is possible!
+### Server error reaction
+In case of some errors got from server client send `BYE` packet and gracefully terminates the whole app.
+### Error types
+Application has several levels of errors such as `Fatal errors`, `Server errors`, `Protocol errors`, `UDP transmision errors`, `User warnings`.
+- `Fatal errors` - is kind of errors then gracefully termination is not possible, application terminates with non zero exit code
+- `Server errors`, `Protocol errors`, `UDP transmision errors` - is kind of errors when gracefully termination is possible, in case of first two errors client sends `BYE` packet and exits with code `1`. In case of UPD transmit errors, `BYE` would not be sent.
+- `User warnings` - is kind of error due to invalid user input, in case of this errors application continue executing and accepting new commands and messages.
+
+In case of any error, error message would be printed to `stderr`.
+
+## Bibliography
+[RFC5234] Crocker, D. and Overell, P. _Augmented BNF for Syntax Specifications: ABNF_ [online]. January 2008. [cited 2024-02-11]. DOI: 10.17487/RFC5234. Available at: https://datatracker.ietf.org/doc/html/rfc5234
+
+[RFC9293] Eddy, W. _Transmission Control Protocol (TCP)_ [online]. August 2022. [cited 2024-02-11]. DOI: 10.17487/RFC9293. Available at: https://datatracker.ietf.org/doc/html/rfc9293
+
+[RFC768] Postel, J. _User Datagram Protocol_ [online]. March 1997. [cited 2024-02-11]. DOI: 10.17487/RFC0768. Available at: https://datatracker.ietf.org/doc/html/rfc768
