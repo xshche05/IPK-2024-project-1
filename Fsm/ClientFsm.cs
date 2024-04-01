@@ -138,5 +138,11 @@ public static class ClientFsm
                 Io.DebugPrintLine("Unknown state...");
                 break;
         }
+        // Additional check for the Bye packet, if got in any state
+        if (p.Type == MessageTypeEnum.Bye)
+        {
+            NeedByeSendFlag = false;
+            SetState(FsmStateEnum.End);
+        }
     }
 }   
