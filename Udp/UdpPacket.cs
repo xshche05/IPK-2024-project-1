@@ -1,6 +1,7 @@
 using System.Text;
 using IpkProject1.Enums;
 using IpkProject1.Interfaces;
+using IpkProject1.SysArg;
 using IpkProject1.User;
 
 namespace IpkProject1.Udp;
@@ -45,10 +46,11 @@ public class UdpPacket : IPacket
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
-                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    Io.ErrorPrintLine("ERR: Invalid message!", ColorScheme.Error);
                     break;
                 }
-                Io.ErrorPrintLine((result ? "Success" : "Failure") + ": " + message);
+                Io.ErrorPrintLine((result ? "Success" : "Failure") + ": " + message,
+                    result ? ColorScheme.Info : ColorScheme.Error);
                 break;
             case MessageTypeEnum.Msg:
                 data = Encoding.ASCII.GetString(_data[3..^1]);
@@ -57,7 +59,7 @@ public class UdpPacket : IPacket
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid display name!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
-                    Io.ErrorPrintLine("ERR: Invalid display name!");
+                    Io.ErrorPrintLine("ERR: Invalid display name!", ColorScheme.Error);
                     break;
                 }
                 message = data.Split("\0")[1];
@@ -65,10 +67,10 @@ public class UdpPacket : IPacket
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
-                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    Io.ErrorPrintLine("ERR: Invalid message!", ColorScheme.Error);
                     break;
                 }
-                Io.PrintLine(dname + ": " + message);
+                Io.PrintLine(dname + ": " + message, ColorScheme.Message);
                 break;
             case MessageTypeEnum.Err:
                 data = Encoding.ASCII.GetString(_data[3..^1]);
@@ -77,7 +79,7 @@ public class UdpPacket : IPacket
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid display name!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
-                    Io.ErrorPrintLine("ERR: Invalid display name!");
+                    Io.ErrorPrintLine("ERR: Invalid display name!", ColorScheme.Error);
                     break;
                 }
                 message = data.Split("\0")[1];
@@ -85,10 +87,10 @@ public class UdpPacket : IPacket
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
-                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    Io.ErrorPrintLine("ERR: Invalid message!", ColorScheme.Error);
                     break;
                 }
-                Io.ErrorPrintLine($"ERR FROM {dname}: {message}");
+                Io.ErrorPrintLine($"ERR FROM {dname}: {message}", ColorScheme.Error);
                 break;
             case MessageTypeEnum.Bye:
                 break; // do nothing
@@ -96,7 +98,7 @@ public class UdpPacket : IPacket
             default:
                 UdpPacket errPacket = (UdpPacket)builder.build_error(InputProcessor.DisplayName, "Invalid packet type!");
                 IpkProject1.GetClient().AddPacketToSendQueue(errPacket);
-                Io.ErrorPrintLine("ERR: Invalid packet type!");
+                Io.ErrorPrintLine("ERR: Invalid packet type!", ColorScheme.Error);
                 break;
         }
     }

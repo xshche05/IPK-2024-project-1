@@ -1,6 +1,7 @@
 using System.Text;
 using IpkProject1.Enums;
 using IpkProject1.Interfaces;
+using IpkProject1.SysArg;
 using IpkProject1.User;
 
 namespace IpkProject1.Tcp;
@@ -32,7 +33,7 @@ public class TcpPacket : IPacket
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid display name!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
-                    Io.ErrorPrintLine("ERR: Invalid display name!");
+                    Io.ErrorPrintLine("ERR: Invalid display name!", ColorScheme.Error);
                     break;
                 }
                 message = msg[4][..^2]; // remove \r\n
@@ -40,10 +41,10 @@ public class TcpPacket : IPacket
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
-                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    Io.ErrorPrintLine("ERR: Invalid message!", ColorScheme.Error);
                     break;
                 }
-                Io.PrintLine($"{displayName}: {message}");
+                Io.PrintLine($"{displayName}: {message}", ColorScheme.Message);
                 break;
             case MessageTypeEnum.Err: // print error
                 var err = _data.Split(" ", 5);
@@ -52,7 +53,7 @@ public class TcpPacket : IPacket
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid display name!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
-                    Io.ErrorPrintLine("ERR: Invalid display name!");
+                    Io.ErrorPrintLine("ERR: Invalid display name!", ColorScheme.Error);
                     break;
                 }
                 message = err[4][..^2]; // remove \r\n
@@ -60,10 +61,10 @@ public class TcpPacket : IPacket
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
-                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    Io.ErrorPrintLine("ERR: Invalid message!", ColorScheme.Error);
                     break;
                 }
-                Io.ErrorPrintLine($"ERR FROM {displayName}: {message}");
+                Io.ErrorPrintLine($"ERR FROM {displayName}: {message}", ColorScheme.Error);
                 break;
             case MessageTypeEnum.Reply: // print reply
                 var reply = _data.Split(" ", 4);
@@ -73,12 +74,13 @@ public class TcpPacket : IPacket
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
                     IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
-                    Io.ErrorPrintLine("ERR: Invalid message!");
+                    Io.ErrorPrintLine("ERR: Invalid message!", ColorScheme.Error);
                     break;
                 }
                 // print hexdump of message
                 Io.DebugPrintLine($"{state}");
-                Io.ErrorPrintLine((state == "OK" ? "Success" : "Failure") + $": {message}");
+                Io.ErrorPrintLine((state == "OK" ? "Success" : "Failure") + $": {message}",
+                    state == "OK" ? ColorScheme.Info : ColorScheme.Error);
                 break;
             case MessageTypeEnum.Bye: // do nothing
                 Io.DebugPrintLine("Client disconnected (server send BYE)");
@@ -87,7 +89,7 @@ public class TcpPacket : IPacket
             default: // unsupported packet
                 TcpPacket errUnsupported = (TcpPacket)builder.build_error(InputProcessor.DisplayName, "Failed to parse packet!");
                 IpkProject1.GetClient().AddPacketToSendQueue(errUnsupported);
-                Io.ErrorPrintLine("ERR: Got packet unsupported by client!\n");
+                Io.ErrorPrintLine("ERR: Got packet unsupported by client!\n", ColorScheme.Error);
                 break;
         }
     }

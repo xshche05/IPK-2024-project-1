@@ -1,35 +1,47 @@
 using System.Diagnostics;
+using IpkProject1.SysArg;
 
 namespace IpkProject1.User;
 
 public static class Io
 {
     public static string LineTerminator { get; set; } = "\n";
+    private static object _lock = new();
 
     public static string? ReadLine()
     {
         return Console.ReadLine();
     }
 
-    public static void Print(string message)
+    public static void Print(string message, ConsoleColor? color)
     {
-        // if (color != null)
-        //     Console.ForegroundColor = (ConsoleColor)color;
-        Console.Write(message);
-        Console.ResetColor();
+        lock (_lock)
+        {
+            if (color != null && SysArgParser.Config.Color)
+                Console.ForegroundColor = (ConsoleColor)color;
+            if (SysArgParser.Config.TimeStamp)
+                Console.Error.Write(DateTime.Now.ToString("HH:mm:ss") + " ");
+            Console.Write(message);
+            Console.ResetColor();
+            if (color != null && SysArgParser.Config.Color)
+                Console.ResetColor();
+        }
     }
     
-    public static void PrintLine(string message)
+    public static void PrintLine(string message, ConsoleColor? color)
     {
-        Print(message + LineTerminator);
+        Print(message + LineTerminator, color);
     }
     
     [Conditional("DEBUG")]
     public static void DebugPrint(string message)
     {
-        Console.ForegroundColor = ConsoleColor.Magenta;
-        Console.Error.Write(message);
-        Console.ResetColor();
+        lock (_lock)
+        {
+            Console.ForegroundColor = ConsoleColor.Magenta;
+            Console.Error.Write(message);
+            Console.ResetColor();
+        }
     }
     
     [Conditional("DEBUG")]
@@ -38,15 +50,23 @@ public static class Io
         DebugPrint(message + LineTerminator);
     }
     
-    public static void ErrorPrint(string message)
+    public static void ErrorPrint(string message, ConsoleColor? color)
     {
-        Console.Error.Write(message);
-        Console.Error.Flush();
-        Console.ResetColor();
+        lock (_lock)
+        {
+            if (color != null && SysArgParser.Config.Color)
+                Console.ForegroundColor = (ConsoleColor)color;
+            if (SysArgParser.Config.TimeStamp)
+                Console.Error.Write(DateTime.Now.ToString("HH:mm:ss") + " ");
+            Console.Error.Write(message);
+            Console.Error.Flush();
+            if (color != null && SysArgParser.Config.Color)
+                Console.ResetColor();   
+        }
     }
     
-    public static void ErrorPrintLine(string message)
+    public static void ErrorPrintLine(string message, ConsoleColor? color)
     {
-        ErrorPrint(message + LineTerminator);
+        ErrorPrint(message + LineTerminator, color);
     }
 }

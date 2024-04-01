@@ -5,6 +5,7 @@ using System.Text;
 using IpkProject1.Enums;
 using IpkProject1.Fsm;
 using IpkProject1.Interfaces;
+using IpkProject1.SysArg;
 using IpkProject1.User;
 
 namespace IpkProject1.Tcp;
@@ -29,8 +30,14 @@ public class TcpChatClient : IChatClient
         else
         {
             // if host is a domain name
-            IPHostEntry hostEntry = Dns.GetHostEntry(host);
-            endPoint = new IPEndPoint(hostEntry.AddressList[0], port);
+            IPAddress[] hostAddresses = Dns.GetHostAddresses(host);
+            IPAddress? IPv4 = Array.Find(hostAddresses, ipTest => ipTest.AddressFamily == AddressFamily.InterNetwork);
+            if (IPv4 == null)
+            {
+                Io.ErrorPrintLine("ERR: Invalid host address, cant find an IPv4 according to hostname! Exiting.", ColorScheme.Error);
+                Environment.Exit(1);
+            }
+            endPoint = new IPEndPoint(IPv4, port);
         }
         _client.Connect(endPoint);
         Io.DebugPrintLine("Connected to server...");

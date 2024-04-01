@@ -2,7 +2,7 @@ using IpkProject1.Enums;
 
 namespace IpkProject1.SysArg;
 
-public record AppConfig()
+public record AppConfig
 {
     // Server port (default 4567)
     public int Port { get; init; } = 4567;
@@ -14,4 +14,8 @@ public record AppConfig()
     public string? Host { get; init; } = null;
     // Protocol to use (TCP or UDP)
     public ProtocolEnum? Protocol { get; init; } = null;
+    
+    public bool TimeStamp { get; init; } = false;
+    
+    public bool Color { get; init; } = false;
 }

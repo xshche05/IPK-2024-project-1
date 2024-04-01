@@ -58,24 +58,30 @@ public static class SysArgParser
                         _config = _config with { Retries = retries };
                         i++;
                         break;
+                    case "-c":
+                        _config = _config with { Color = true };
+                        break;
+                    case "--ts":
+                        _config = _config with { TimeStamp = true };
+                        break;
                     case "-h":
-                        Io.PrintLine(Help);
+                        Io.PrintLine(Help, null);
                         Environment.Exit(0);
                         break;
                 }
             } catch (FormatException)
             {
                 // Catch the exception if the argument format is invalid
-                Io.ErrorPrintLine("Invalid argument format!");
-                Io.PrintLine(Help);
+                Io.ErrorPrintLine("Invalid argument format!", ColorScheme.Error);
+                Io.PrintLine(Help, null);
                 Environment.Exit(1);
             }
         }
         // Check if the required arguments are present
         if (_config.Protocol == null || _config.Host == null)
         {
-            Io.ErrorPrintLine("Missing required arguments!");
-            Io.PrintLine(Help);
+            Io.ErrorPrintLine("Missing required arguments!", ColorScheme.Error);
+            Io.PrintLine(Help, null);
             Environment.Exit(1);
         }
     }

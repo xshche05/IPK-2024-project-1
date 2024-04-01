@@ -71,19 +71,23 @@ public static class ClientFsm
         {
             case "auth": // Check if the command is allowed in the current state
                 flag = State == FsmStateEnum.Auth || State == FsmStateEnum.Start;
-                if (!flag) Io.ErrorPrintLine("ERR: You was already authenticated!");
+                if (!flag) Io.ErrorPrintLine("ERR: You was already authenticated!", ColorScheme.Warning);
                 return flag;
             case "join":
                 flag = State == FsmStateEnum.Open; // Check if the command is allowed in the current state
-                if (!flag) Io.ErrorPrintLine("ERR: You must be authenticated to join a chat room!");
+                if (!flag) Io.ErrorPrintLine("ERR: You must be authenticated to join a chat room!", ColorScheme.Warning);
                 return flag;
             case "rename":
                 flag = State == FsmStateEnum.Open; // Check if the command is allowed in the current state
-                if (!flag) Io.ErrorPrintLine("ERR: You must be authenticated to rename yourself!");
+                if (!flag) Io.ErrorPrintLine("ERR: You must be authenticated to rename yourself!", ColorScheme.Warning);
                 return flag;
             case "msg":
                 flag = State == FsmStateEnum.Open; // Check if the command is allowed in the current state
-                if (!flag) Io.ErrorPrintLine("ERR: You must be authenticated to send a message!");
+                if (!flag) Io.ErrorPrintLine("ERR: You must be authenticated to send a message!", ColorScheme.Warning);
+                return flag;
+            case "currentname":
+                flag = State == FsmStateEnum.Open; // Check if the command is allowed in the current state
+                if (!flag) Io.ErrorPrintLine("ERR: You must be authenticated to check your current name!", ColorScheme.Warning);
                 return flag;
             default:
                 return flag;

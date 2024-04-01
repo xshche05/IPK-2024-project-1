@@ -40,7 +40,7 @@ public class UdpChatClient : IChatClient
             IPAddress? IPv4 = Array.Find(hostAddresses, ipTest => ipTest.AddressFamily == AddressFamily.InterNetwork);
             if (IPv4 == null)
             {
-                Io.ErrorPrintLine("ERR: Invalid host address, cant find an IPv4 according to hostname! Exiting.");
+                Io.ErrorPrintLine("ERR: Invalid host address, cant find an IPv4 according to hostname! Exiting.", ColorScheme.Error);
                 Environment.Exit(1);
             }
             _serverEndPoint = new IPEndPoint(IPv4, port);
@@ -86,7 +86,7 @@ public class UdpChatClient : IChatClient
                 {
                     IPacket err = new UdpPacketBuilder().build_error(InputProcessor.DisplayName, "Too small paket");
                     AddPacketToSendQueue(err);
-                    Io.ErrorPrintLine("ERR: got too small packet");
+                    Io.ErrorPrintLine("ERR: got too small packet", ColorScheme.Error);
                     continue;
                 }
                 MessageTypeEnum type = (MessageTypeEnum)bytes[0]; // Get message type
@@ -126,11 +126,11 @@ public class UdpChatClient : IChatClient
                 else
                 {
                     // Got unsupported message type
-                    Io.ErrorPrintLine("ERR: Unknown message type received...");
+                    Io.ErrorPrintLine("ERR: Unknown message type received...", ColorScheme.Error);
                     var err = new UdpPacketBuilder().build_error(InputProcessor.DisplayName, "Unknown message type received");
                     if (_serverEndPoint == null)
                     {
-                        Io.ErrorPrintLine("ERR: EndPoint is null...");
+                        Io.ErrorPrintLine("ERR: EndPoint is null...", ColorScheme.Error);
                         ClientFsm.SetState(FsmStateEnum.End);
                         return;
                     }
@@ -231,7 +231,7 @@ public class UdpChatClient : IChatClient
         {
             if (_serverEndPoint == null)
             {
-                Io.ErrorPrintLine("ERR: EndPoint is null...");
+                Io.ErrorPrintLine("ERR: EndPoint is null...", ColorScheme.Error);
                 ClientFsm.SetState(FsmStateEnum.End);
                 return;
             }
@@ -249,7 +249,7 @@ public class UdpChatClient : IChatClient
             if (i == SysArgParser.Config.Retries)
             {
                 // Message not confirmed, max retries reached
-                Io.ErrorPrintLine("ERR: Message with id " + id + " not confirmed, max retries reached");
+                Io.ErrorPrintLine("ERR: Message with id " + id + " not confirmed, max retries reached", ColorScheme.Error);
                 if (ClientFsm.State != FsmStateEnum.End)
                 {
                     ClientFsm.SetState(FsmStateEnum.End);

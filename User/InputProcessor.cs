@@ -51,19 +51,23 @@ public static class InputProcessor
                     !GrammarChecker.CheckDisplayName(displayName)) break;
                 _currentDisplayName = displayName;
                 break;
+            case ["/currentname"]:
+                if (!ClientFsm.IsCommandAllowed("currentname")) break;
+                Io.PrintLine($"Your current display name is: {_currentDisplayName}", ColorScheme.Info);
+                break;
             case ["/help"]:
                 Io.PrintLine("Commands:\n" +
-                              "/auth <username> <secret> <display_name>\n" +
-                              "/join <channel>\n" +
-                              "/rename <display_name>\n" +
-                              "/msg <message>\n" +
-                              "Other inputs or commands which are not in specified format will be treated as messages\n");
+                              "/auth <username> <secret> <display_name> - authentication command\n" +
+                              "/join <channel>                          - join (create if not exists) to specified channel\n" +
+                              "/rename <display_name>                   - changing the display name\n" +
+                              "/currentname                             - prints your current display name\n" +
+                              "\nOther inputs not started from slash is treated as messages\n", ColorScheme.Info);
                 break;
             default:
                 // if starts with / it is not a message write error
                 if (input.StartsWith('/'))
                 {
-                    Io.ErrorPrintLine("ERR: Invalid command, please check your input!");
+                    Io.ErrorPrintLine("ERR: Invalid command, please check your input!", ColorScheme.Warning);
                     break;
                 }
                 // check if the client is authenticated and if the input is in correct format

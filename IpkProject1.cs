@@ -62,7 +62,7 @@ internal static class IpkProject1
             _chatClient = new UdpChatClient();
         if (_chatClient == null || config.Host == null)
         {
-            Io.ErrorPrintLine("Arguments error! Use -h for help.");
+            Io.ErrorPrintLine("Arguments error! Use -h for help.", ColorScheme.Error);
             Environment.Exit(1);
         }
         // Connect to the server or bind to the host
