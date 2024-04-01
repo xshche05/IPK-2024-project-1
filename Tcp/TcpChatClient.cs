@@ -55,7 +55,7 @@ public class TcpChatClient : IChatClient
     public void Close()
     {
         // wait for the last send task to finish
-        IpkProject1.GetLastSendTask()?.Wait();
+        Program.GetLastSendTask()?.Wait();
         try
         {
             // shutdown the client, gracefully close the connection
@@ -170,7 +170,7 @@ public class TcpChatClient : IChatClient
                 // Send packet to server
                 var last = SendDataToServer(p);
                 // Remember the last send task
-                IpkProject1.SetLastSendTask(last);
+                Program.SetLastSendTask(last);
                 await last; // Wait for the task to finish
                 Io.DebugPrintLine($"Send packet to server {p.Type}...");
             }
@@ -182,7 +182,7 @@ public class TcpChatClient : IChatClient
         if (packet.Type == MessageTypeEnum.Auth)
         {
             // lock input if auth request is sent
-            IpkProject1.AuthSem.WaitOne();
+            Program.AuthSem.WaitOne();
             Io.DebugPrintLine("AuthSem acquired in TcpChatClient...");
         }
         // Add packet to the send queue

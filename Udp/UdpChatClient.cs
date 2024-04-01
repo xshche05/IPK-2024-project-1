@@ -26,6 +26,8 @@ public class UdpChatClient : IChatClient
     // Blocking collection to store packets to send
     private readonly BlockingCollection<UdpPacket> _sendPacketsQueue = new ();
     
+    private int _authRefId = -1;
+    
     public void Connect(string host, int port)
     {
         if (IPAddress.TryParse(host, out var ip))
@@ -58,7 +60,7 @@ public class UdpChatClient : IChatClient
         _sendPacketsQueue.CompleteAdding();
         Io.DebugPrintLine("Disconnected from server...");
         // Wait for the last send task to finish
-        Task? last = IpkProject1.GetLastSendTask();
+        Task? last = Program.GetLastSendTask();
         if (last != null)
         {
             last.Wait();
@@ -108,6 +110,15 @@ public class UdpChatClient : IChatClient
                     Io.DebugPrintLine($"Confirm sent for message {type} {msgId}");
                     // Convert data to UdpPacket
                     UdpPacket packet = UdpPacketParser.Parse(bytes);
+                    if (type == MessageTypeEnum.Reply && ClientFsm.State == FsmStateEnum.Auth)
+                    {
+                        var replyRefId = BitConverter.ToUInt16(packet.ToBytes()[4..6]);
+                        if (replyRefId != _authRefId)
+                        {
+                            _authRefId = -1;
+                            continue;
+                        }
+                    }
                     if (!_processedMessages.Contains(msgId)) // Check if message was already processed
                     {
                         Io.DebugPrintLine($"Processing message {type} {msgId}");
@@ -198,7 +209,7 @@ public class UdpChatClient : IChatClient
                 // Send packet to server
                 var last = SendDataToServer(p);
                 // Update last send task
-                IpkProject1.SetLastSendTask(last);
+                Program.SetLastSendTask(last);
                 await last; // Wait for the task to finish
                 Io.DebugPrintLine($"Send packet to server {p.Type}...");
             }
@@ -211,7 +222,8 @@ public class UdpChatClient : IChatClient
         if (packet.Type == MessageTypeEnum.Auth)
         {
             // Lock the semaphore to prevent sending packets before authentication
-            IpkProject1.AuthSem.WaitOne();
+            Program.AuthSem.WaitOne();
+            _authRefId = ((UdpPacket)packet).GetMsgId();
             Io.DebugPrintLine("AuthSem acquired in UdpChatClient...");
         }
         // Add packet to send queue
@@ -252,6 +264,8 @@ public class UdpChatClient : IChatClient
                 Io.ErrorPrintLine("ERR: Message with id " + id + " not confirmed, max retries reached", ColorScheme.Error);
                 if (ClientFsm.State != FsmStateEnum.End)
                 {
+                    Program.ExitCode = 1;
+                    ClientFsm.NeedByeSendFlag = false;
                     ClientFsm.SetState(FsmStateEnum.End);
                 }
             }

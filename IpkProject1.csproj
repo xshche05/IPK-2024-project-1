@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <OutputType>Exe</OutputType>
@@ -11,6 +11,7 @@
     <PropertyGroup Condition="'$(Configuration)'=='Release'">
         <DebugSymbols>False</DebugSymbols>
         <DebugType>None</DebugType>
+        <PublishSingleFile>True</PublishSingleFile>
     </PropertyGroup>
 
 </Project>

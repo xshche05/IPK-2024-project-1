@@ -87,7 +87,7 @@ public static class InputProcessor
             IPacket? packet = null;
             Task getLine = Task.Run(() => msg = Io.ReadLine()); // Async read line
             await getLine; // Wait for user input
-            IpkProject1.AuthSem.WaitOne(); // Wait if auth is in progress
+            Program.AuthSem.WaitOne(); // Wait if auth is in progress
             if (msg == null)
             {
                 ClientFsm.SetState(FsmStateEnum.End); // Ctrl+D pressed
@@ -97,9 +97,9 @@ public static class InputProcessor
                 packet = ProcessInput(msg); // Process user input
                 Io.DebugPrintLine($"Packet: {packet?.Type}");
             }
-            IpkProject1.AuthSem.Release();
+            Program.AuthSem.Release();
             // packet is null in case of invalid input, rename, help
-            if (packet != null) IpkProject1.GetClient().AddPacketToSendQueue(packet);
+            if (packet != null) Program.GetClient().AddPacketToSendQueue(packet);
         }
         Io.DebugPrintLine("CmdReader terminated...");
     }

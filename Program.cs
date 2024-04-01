@@ -1,4 +1,4 @@
-﻿using IpkProject1.Enums;
+using IpkProject1.Enums;
 using IpkProject1.Fsm;
 using IpkProject1.Interfaces;
 using IpkProject1.SysArg;
@@ -8,13 +8,14 @@ using IpkProject1.User;
 
 namespace IpkProject1;
 
-internal static class IpkProject1
+internal static class Program
 {
     private static IChatClient? _chatClient;
     private static Task? _printerTask;
     private static Task? _lastSendTask;
     public static Semaphore AuthSem { get; } = new (1, 1);
     public static Semaphore TerminationSem { get; } = new (0, 100);
+    public static int ExitCode { set; get; } = 0;
     public static void Main(string[] args)
     {
         // print debug messages to console
@@ -34,7 +35,7 @@ internal static class IpkProject1
         Io.DebugPrintLine("Waiting for termination...");
         TerminationSem.WaitOne();
         Terminate();
-        Environment.Exit(0);
+        Environment.Exit(ExitCode);
     }
 
     private static void Terminate()

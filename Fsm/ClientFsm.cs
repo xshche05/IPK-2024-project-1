@@ -15,51 +15,53 @@ public static class ClientFsm
     // Property to access the current state of the client's FSM
     public static FsmStateEnum State => _state;
     // Flag to determine if the bye packet was already sent
-    private static bool _byeSentFlag = false;
+    public static bool NeedByeSendFlag { get; set; } = true;
+
     // Lock object for the End state
-    private static readonly object EndLockObj = new();
+    private static readonly object FsmLockObj = new();
     
     // Method to set the state of the client's FSM
     public static void SetState(FsmStateEnum stateEnum)
     {
-        var prevState = _state;
-        _state = stateEnum;
-        
-        Io.DebugPrintLine($"Previous state: {prevState}");
-        Io.DebugPrintLine($"State changed to: {_state}");
-        
-        // Send bye packet if the state is changed to End and bye packet was not sent yet
-        if (_state == FsmStateEnum.End && prevState != FsmStateEnum.End)
+        lock (FsmLockObj) // Set state can be called from multiple tasks
         {
-            lock (EndLockObj)
+            var prevState = _state;
+            _state = stateEnum;
+        
+            Io.DebugPrintLine($"Previous state: {prevState}");
+            Io.DebugPrintLine($"State changed to: {_state}");
+        
+            // Send bye packet if the state is changed to End and bye packet was not sent yet
+            if (_state == FsmStateEnum.End && prevState != FsmStateEnum.End)
             {
-                if (_byeSentFlag) return;
                 IPacket? byePacket = SysArgParser.Config.Protocol switch
                 {
                     ProtocolEnum.Udp => new UdpPacketBuilder().build_bye(),
                     ProtocolEnum.Tcp => new TcpPacketBuilder().build_bye(),
                     _ => null
                 };
-                if (byePacket != null)
+                if (byePacket != null && NeedByeSendFlag)
                 {
                     Io.DebugPrintLine("LAST Bye packet sent...");
-                    IpkProject1.GetClient().AddPacketToSendQueue(byePacket);
-                    _byeSentFlag = true;
+                    Program.GetClient().AddPacketToSendQueue(byePacket);
+                    NeedByeSendFlag = false;
                 }
-                IpkProject1.TerminationSem.Release();
+
+                Program.TerminationSem.Release();
                 Io.DebugPrintLine("Termination semaphore released by END state...");
             }
-        }
-        else if (_state == FsmStateEnum.Open && prevState == FsmStateEnum.Auth
-            || _state == FsmStateEnum.Auth && prevState == FsmStateEnum.Auth)
-        {
-            // Release semaphore if the state is changed from Auth to Open (REPLY OK) or Auth to Auth (REPLY NOK)
-            Io.DebugPrintLine("Auth semaphore released...");
-            IpkProject1.AuthSem.Release();
-        }
-        else if (_state == FsmStateEnum.Error)
-        {
-            SetState(FsmStateEnum.End);
+            else if (_state == FsmStateEnum.Open && prevState == FsmStateEnum.Auth
+                     || _state == FsmStateEnum.Auth && prevState == FsmStateEnum.Auth)
+            {
+                // Release semaphore if the state is changed from Auth to Open (REPLY OK) or Auth to Auth (REPLY NOK)
+                Io.DebugPrintLine("Auth semaphore released...");
+                Program.AuthSem.Release();
+            }
+            else if (_state == FsmStateEnum.Error)
+            {
+                Program.ExitCode = 1;
+                SetState(FsmStateEnum.End);
+            }
         }
     }
     
@@ -120,7 +122,16 @@ public static class ClientFsm
                 }
                 else if (p.Type == MessageTypeEnum.Bye)
                 {
+                    NeedByeSendFlag = false;
                     SetState(FsmStateEnum.End);
+                }
+                else if (p.Type == MessageTypeEnum.Msg || p.Type == MessageTypeEnum.Reply)
+                { 
+                    // no state change
+                }
+                else
+                {
+                    SetState(FsmStateEnum.Error);
                 }
                 break;
             default:

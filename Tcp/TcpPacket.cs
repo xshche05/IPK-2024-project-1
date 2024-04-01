@@ -32,7 +32,7 @@ public class TcpPacket : IPacket
                 if (!GrammarChecker.CheckDisplayName(displayName, true))
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid display name!");
-                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Program.GetClient().AddPacketToSendQueue(grammarErr);
                     Io.ErrorPrintLine("ERR: Invalid display name!", ColorScheme.Error);
                     break;
                 }
@@ -40,7 +40,7 @@ public class TcpPacket : IPacket
                 if (!GrammarChecker.CheckMsg(message, true))
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
-                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Program.GetClient().AddPacketToSendQueue(grammarErr);
                     Io.ErrorPrintLine("ERR: Invalid message!", ColorScheme.Error);
                     break;
                 }
@@ -52,7 +52,7 @@ public class TcpPacket : IPacket
                 if (!GrammarChecker.CheckDisplayName(displayName, true))
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid display name!");
-                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Program.GetClient().AddPacketToSendQueue(grammarErr);
                     Io.ErrorPrintLine("ERR: Invalid display name!", ColorScheme.Error);
                     break;
                 }
@@ -60,7 +60,7 @@ public class TcpPacket : IPacket
                 if (!GrammarChecker.CheckMsg(message, true))
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
-                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Program.GetClient().AddPacketToSendQueue(grammarErr);
                     Io.ErrorPrintLine("ERR: Invalid message!", ColorScheme.Error);
                     break;
                 }
@@ -73,7 +73,7 @@ public class TcpPacket : IPacket
                 if (!GrammarChecker.CheckMsg(message, true))
                 {
                     var grammarErr = builder.build_error(InputProcessor.DisplayName, "Invalid message!");
-                    IpkProject1.GetClient().AddPacketToSendQueue(grammarErr);
+                    Program.GetClient().AddPacketToSendQueue(grammarErr);
                     Io.ErrorPrintLine("ERR: Invalid message!", ColorScheme.Error);
                     break;
                 }
@@ -88,7 +88,7 @@ public class TcpPacket : IPacket
             case MessageTypeEnum.None:
             default: // unsupported packet
                 TcpPacket errUnsupported = (TcpPacket)builder.build_error(InputProcessor.DisplayName, "Failed to parse packet!");
-                IpkProject1.GetClient().AddPacketToSendQueue(errUnsupported);
+                Program.GetClient().AddPacketToSendQueue(errUnsupported);
                 Io.ErrorPrintLine("ERR: Got packet unsupported by client!\n", ColorScheme.Error);
                 break;
         }
