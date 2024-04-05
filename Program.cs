@@ -91,5 +91,3 @@ internal static class Program
         return _lastSendTask;
     }
 }
-
-// /auth xshche05 7cf1aa40-5e37-4bdb-b19f-94f642970673 spagetik
